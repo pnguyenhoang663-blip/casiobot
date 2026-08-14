@@ -506,13 +506,20 @@ COMMANDS = {
 }
 
 
+_web_started = False
+
+
 @bot.event
 async def on_ready():
+    global _web_started
     print(f'Đăng nhập thành công! Bot: {bot.user} (ID: {bot.user.id})')
     print(f'Số server: {len(bot.guilds)}')
     for g in bot.guilds:
         print(f'  - {g.name} ({g.id})')
     await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=f'{PREFIX}help'))
+    if web is not None and not _web_started:
+        _web_started = True
+        asyncio.create_task(web_main())
 
 
 @bot.event
@@ -556,6 +563,4 @@ if __name__ == '__main__':
     if not TOKEN:
         print('❌ Thiếu token (đặt biến môi trường TOKEN hoặc sửa config.json)')
     else:
-        if web is not None:
-            bot.loop.create_task(web_main())
         bot.run(TOKEN)
