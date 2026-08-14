@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+outputs/
+config.json
+.git/
+bot_out.log
+bot_err.log
+t.py
