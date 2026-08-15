@@ -137,7 +137,7 @@ def build_page_games():
     embed.add_field(name=f'`{PREFIX}dung`', value='Tạm dừng trò chơi tạm thời', inline=False)
     embed.add_field(name=f'`{PREFIX}tiep`', value='Tiếp tục trò chơi đang tạm dừng', inline=False)
     embed.add_field(name=f'`{PREFIX}stop`', value='Kết thúc cuộc chơi', inline=False)
-    embed.add_field(name='📜 Luật chơi', value='- Trả lời đúng → ✅\n- Trả lời sai → ❌\n- Người đã nối rồi mà nối tiếp (chế độ 1 lần) → ⏳\n- Ai nối 1 từ không ai/có từ tiếp theo nối được nữa → người đó **THẮNG** 🏆', inline=False)
+    embed.add_field(name='📜 Luật chơi', value='- Nối tiếp bằng **từ cuối** của cụm trước (vd: con mèo → mèo mướp)\n- Trả lời đúng → ✅\n- Trả lời sai → ❌\n- Người đã nối rồi mà nối tiếp (chế độ 1 lần) → ⏳\n- Ai nối 1 từ không ai có từ tiếp theo nối được nữa → người đó **THẮNG** 🏆', inline=False)
     return embed
 
 
@@ -520,8 +520,9 @@ async def cmd_noitu(message, args):
     if a in ('2', 'nhieu', 'nhiều'):
         mode = 2
     start = noitu.pick_start()
+    last_start = start.split()[-1]
     GAMES[str(message.channel.id)] = {
-        'letter': start[-1],
+        'need_word': last_start,
         'used': {start},
         'last_player': None,
         'paused': False,
@@ -529,10 +530,9 @@ async def cmd_noitu(message, args):
         'count': 1,
     }
     mode_name = 'Nối 1 lần' if mode == 1 else 'Nối nhiều'
-    last_start = start.split()[-1]
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
     embed.add_field(name='🔤 Từ đầu', value=f'**{start}**', inline=False)
-    embed.add_field(name='➡️ Nối tiếp từ', value=f'**{last_start}** → chữ **{start[-1]}**', inline=False)
+    embed.add_field(name='➡️ Nối tiếp từ', value=f'Bắt đầu bằng từ **{last_start}**', inline=False)
     embed.add_field(name='⚙️ Chế độ', value=mode_name, inline=False)
     embed.set_footer(text=f'{PREFIX}noitiep 1/2 đổi chế độ | {PREFIX}dung | {PREFIX}tiep | {PREFIX}stop')
     await message.reply(embed=embed)
@@ -575,7 +575,7 @@ async def cmd_tiep(message, args):
         await message.reply('⏩ Trò chơi vẫn đang chạy mà!')
         return
     g['paused'] = False
-    await message.reply(f'▶️ Tiếp tục! Nối tiếp chữ **{g["letter"]}**.')
+    await message.reply(f'▶️ Tiếp tục! Nối tiếp bằng từ **{g["need_word"]}**.')
 
 
 async def cmd_stop(message, args):
@@ -609,7 +609,7 @@ async def handle_noitu_move(message):
         except Exception:
             pass
         return
-    if phrase in g['used'] or not ok_dict or phrase[0] != g['letter']:
+    if phrase in g['used'] or not ok_dict or base[0] != g['need_word']:
         try:
             await message.add_reaction('❌')
         except Exception:
@@ -620,15 +620,14 @@ async def handle_noitu_move(message):
     except Exception:
         pass
     g['used'].add(phrase)
-    g['letter'] = phrase[-1]
-    last_word = phrase.split()[-1]
+    g['need_word'] = base[-1]
     g['last_player'] = message.author.id
     g['count'] += 1
-    if not noitu.can_continue(g['letter'], g['used']):
-        await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được chữ **{g["letter"]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
+    if not noitu.can_continue(g['need_word'], g['used']):
+        await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được sau từ **{g["need_word"]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
         GAMES.pop(ch, None)
         return
-    await message.reply(f'➡️ **{last_word}** → nối tiếp chữ **{g["letter"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
+    await message.reply(f'➡️ **{phrase}** → nối tiếp bằng từ **{g["need_word"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
 
 
 COMMANDS = {
