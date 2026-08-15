@@ -360,31 +360,44 @@ def save_output(filename, content):
 def image_to_hex_bytes(img):
     from PIL import Image
     img = img.convert('L').resize((192, 63), Image.LANCZOS)
+    return image_to_hex_bytes_size(img, 192, 63)
+
+
+def image_to_hex_bytes_size(img, w, h):
+    from PIL import Image
+    img = img.convert('L').resize((w, h), Image.LANCZOS)
     px = img.load()
+    bpr = (w + 7) // 8
     out = bytearray()
-    for y in range(63):
-        for bx in range(24):
+    for y in range(h):
+        for bx in range(bpr):
             v = 0
             for k in range(8):
                 x = bx * 8 + k
-                v = (v << 1) | (1 if px[x, y] < 128 else 0)
+                v = (v << 1) | (1 if x < w and px[x, y] < 128 else 0)
             out.append(v)
     return bytes(out)
 
 
 def hex_bytes_to_image(data):
+    return hex_bytes_to_image_size(data, 192, 63)
+
+
+def hex_bytes_to_image_size(data, w, h):
     from PIL import Image
-    if len(data) < 1512:
-        data += b'\x00' * (1512 - len(data))
-    data = data[:1512]
-    img = Image.new('L', (192, 63), 255)
+    bpr = (w + 7) // 8
+    need = bpr * h
+    if len(data) < need:
+        data += b'\x00' * (need - len(data))
+    data = data[:need]
+    img = Image.new('L', (w, h), 255)
     px = img.load()
-    for y in range(63):
-        for bx in range(24):
-            byte = data[y * 24 + bx]
+    for y in range(h):
+        for bx in range(bpr):
+            byte = data[y * bpr + bx]
             for k in range(8):
                 x = bx * 8 + k
-                if byte & (1 << (7 - k)):
+                if x < w and (byte & (1 << (7 - k))):
                     px[x, y] = 0
     return img
 

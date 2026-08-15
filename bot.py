@@ -120,6 +120,7 @@ def build_page_casio():
     embed.add_field(name=f'`{PREFIX}phantich <asm>`', value='Phân tích asm đã đưa (demo) - file .txt hoặc dán trực tiếp, Chỉ dành cho 580vnx', inline=False)
     embed.add_field(name=f'`{PREFIX}p2b <ảnh>`', value='Dịch ảnh sang trắng đen theo 192x63 và đưa hex ra theo dạng .txt', inline=False)
     embed.add_field(name=f'`{PREFIX}h2b <hex>`', value='Dịch hex sang ảnh trắng đen theo 192x63', inline=False)
+    embed.add_field(name=f'`{PREFIX}pixel <XxX>`', value='Dịch ảnh sang hex theo kích cỡ tùy chỉnh (X tối đa 192x63), xuất ảnh + .txt', inline=False)
     embed.add_field(name=f'`{PREFIX}ganhex <hex>`', value='Gán hex đã đưa vào biến A, B, C', inline=False)
     embed.add_field(name=f'`{PREFIX}dichhex <580/880> <hex>`', value='Dịch hex sang token (580vnx/880btg)', inline=False)
     embed.add_field(name=f'`{PREFIX}set580 <id>`', value='Set id kênh bot sẽ tìm tin nhắn (Chỉ admin)', inline=False)
@@ -406,6 +407,43 @@ async def cmd_h2b(message, args):
     await message.reply(embed=embed, file=discord.File(png_path))
 
 
+async def cmd_pixel(message, args):
+    if not message.attachments:
+        await message.reply(f'Cách dùng: `{PREFIX}pixel <XxX>` kèm theo 1 ảnh. VD: `{PREFIX}pixel 96x31`')
+        return
+    att = message.attachments[0]
+    if not att.content_type or not att.content_type.startswith('image/'):
+        await message.reply('❌ Đây không phải file ảnh.')
+        return
+    m = re.match(r'^\s*(\d+)\s*[xX×]\s*(\d+)\s*$', args)
+    if not m:
+        await message.reply(f'Cách dùng: `{PREFIX}pixel <XxX>` - VD: `{PREFIX}pixel 96x31`')
+        return
+    w = int(m.group(1))
+    h = int(m.group(2))
+    if w < 1 or h < 1:
+        await message.reply('❌ Kích thước phải ≥ 1.')
+        return
+    if w > 192 or h > 63:
+        await message.reply('❌ Kích thước tối đa 192x63.')
+        return
+    try:
+        async with message.channel.typing():
+            img = await read_image(att)
+            data = cl.image_to_hex_bytes_size(img, w, h)
+            hexstr = data.hex()
+            ts = int(time.time())
+            txt_path = cl.save_output(f'pixel_{ts}.txt', hexstr)
+            factor = max(1, min(32, 768 // w))
+            preview = cl.hex_bytes_to_image_size(data, w, h).resize((w * factor, h * factor), Image.NEAREST)
+            png_path = os.path.join(cl.OUTPUT_DIR, f'pixel_{ts}.png')
+            preview.save(png_path)
+    except Exception as e:
+        await message.reply(f'❌ Lỗi xử lý ảnh: `{e}`')
+        return
+    await message.reply(files=[discord.File(png_path), discord.File(txt_path)])
+
+
 async def cmd_ganhex(message, args):
     hexstr = cl.clean_hex(args)
     if not hexstr or len(hexstr) % 2 != 0:
@@ -647,6 +685,7 @@ COMMANDS = {
     'phantich': cmd_phantich,
     'p2b': cmd_p2b,
     'h2b': cmd_h2b,
+    'pixel': cmd_pixel,
     'ganhex': cmd_ganhex,
     'dichhex': cmd_dichhex,
     'set580': cmd_set580,
