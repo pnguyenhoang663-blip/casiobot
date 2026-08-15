@@ -36,7 +36,7 @@ try:
 except Exception:
     web = None
 
-AI_MODELS = [m.strip() for m in os.getenv('AI_MODELS', 'gemini-3-flash,gemini-2.5-flash-lite,gemini-2.5-flash').split(',') if m.strip()] or ['gemini-3-flash']
+AI_MODELS = [m.strip() for m in os.getenv('AI_MODELS', 'gemini-1.5-flash,gemini-2.5-flash-lite,gemini-2.5-flash,gemini-3-flash').split(',') if m.strip()] or ['gemini-1.5-flash']
 AI_MODEL = AI_MODELS[0]
 AI_BASE = os.getenv('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
 AI_CHANNELS = set()
