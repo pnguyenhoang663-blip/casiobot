@@ -371,9 +371,9 @@ async def cmd_p2b(message, args):
         async with message.channel.typing():
             img = await read_image(att)
             data = cl.image_to_hex_bytes(img)
-            hexstr = data.hex()
+            spaced_hex = data.hex(' ')
             ts = int(time.time())
-            txt_path = cl.save_output(f'p2b_{ts}.txt', hexstr)
+            txt_path = cl.save_output(f'p2b_{ts}.txt', spaced_hex)
             preview = cl.hex_bytes_to_image(data).resize((192 * 4, 63 * 4), Image.NEAREST)
             png_path = os.path.join(cl.OUTPUT_DIR, f'p2b_{ts}.png')
             preview.save(png_path)
@@ -431,9 +431,9 @@ async def cmd_pixel(message, args):
         async with message.channel.typing():
             img = await read_image(att)
             data = cl.image_to_hex_bytes_size(img, w, h)
-            hexstr = data.hex()
+            spaced_hex = data.hex(' ')
             ts = int(time.time())
-            txt_path = cl.save_output(f'pixel_{ts}.txt', hexstr)
+            txt_path = cl.save_output(f'pixel_{ts}.txt', spaced_hex)
             factor = max(1, min(32, 768 // w))
             preview = cl.hex_bytes_to_image_size(data, w, h).resize((w * factor, h * factor), Image.NEAREST)
             png_path = os.path.join(cl.OUTPUT_DIR, f'pixel_{ts}.png')
