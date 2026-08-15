@@ -850,7 +850,10 @@ async def handle_ai_message(message):
         user_text = re.sub(r'<@!?(\d+)>', '', user_text).strip()
     hist = AI_HISTORY.setdefault(ch, [])
     hist = (hist + [{'role': 'user', 'content': user_text}])[-20:]
-    sys_base = 'Bạn là Casiobot - bot Discord tiếng Việt. Trả lời ngắn gọn, thân thiện, đúng trọng tâm, bằng tiếng Việt. Không cần nhắc tài liệu.'
+    sys_base = ('Bạn là Casiobot - bot Discord tiếng Việt. Trả lời ngắn gọn, tự nhiên, đúng trọng tâm bằng tiếng Việt. '
+                'TRẢ LỜI ĐÚNG KIỂU CHAT DISCORD: không dùng LaTeX ($..$, $$..$$, \\frac...), không dùng HTML/markdown math, '
+                'không đóng khung công thức kiểu Google, dùng kí tự thường (vd H2O chứ không phải $H_2O$), '
+                'hạn chế tối đa emoji (chỉ 0-1 khi thật cần), không quá dài dòng.')
     msgs = [{'role': 'system', 'content': sys_base}] + hist
     try:
         async with message.channel.typing():
