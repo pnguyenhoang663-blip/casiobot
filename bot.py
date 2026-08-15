@@ -20,11 +20,11 @@ if os.path.exists(CONFIG_PATH):
 else:
     CONFIG = {}
 
-CONFIG.setdefault('prefix', 'c!')
+CONFIG.setdefault('prefix', 'p!')
 CONFIG.setdefault('token', '')
 CONFIG.setdefault('guilds', {})
 
-PREFIX = CONFIG.get('prefix', 'c!')
+PREFIX = os.getenv('PREFIX', '') or CONFIG.get('prefix', 'p!')
 TOKEN = os.getenv('TOKEN', '') or CONFIG.get('token', '')
 
 try:
