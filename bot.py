@@ -813,10 +813,11 @@ async def handle_ai_message(message):
         await message.reply(f'❌ Lỗi AI: `{e}`')
         AI_HISTORY.pop(ch, None)
         return
-    if len(reply) > 1900:
-        reply = reply[:1900] + '...'
     AI_HISTORY[ch] = (hist + [{'role': 'assistant', 'content': reply}])[-20:]
-    await message.reply(reply)
+    chunks = vd_docs.chunk_text(reply)
+    await message.reply(chunks[0])
+    for c in chunks[1:]:
+        await message.channel.send(c)
 
 
 COMMANDS = {
