@@ -128,7 +128,7 @@ def build_page_casio():
 
 
 def build_page_games():
-    embed = discord.Embed(title='🎮 Trò chơi', color=0xff44aa)
+    embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
     embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/3 - Vui là chính 😎')
     embed.add_field(name='🕹️ Đang phát triển...', value='Các lệnh trò chơi đang được chuẩn bị và sẽ sớm xuất hiện tại đây!', inline=False)
     embed.add_field(name='💡 Gợi ý', value=f'Gõ `{PREFIX}comp580` để tự viết game chạy trên máy tính Casio của bạn 😉', inline=False)
@@ -140,7 +140,7 @@ class HelpSelect(discord.ui.Select):
         options = [
             discord.SelectOption(label='Lệnh chung', value='0', emoji='📖'),
             discord.SelectOption(label='Casio tools', value='1', emoji='🧮'),
-            discord.SelectOption(label='Trò chơi', value='2', emoji='🎮'),
+            discord.SelectOption(label='Nối từ', value='2', emoji='🎮'),
         ]
         super().__init__(placeholder='Chọn trang hướng dẫn', options=options, row=0)
         self.pages = pages
