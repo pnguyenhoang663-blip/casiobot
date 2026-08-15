@@ -35,7 +35,7 @@ try:
 except Exception:
     web = None
 
-AI_MODEL = os.getenv('AI_MODEL', 'gemini-2.0-flash')
+AI_MODEL = os.getenv('AI_MODEL', 'gemini-2.5-flash')
 AI_BASE = os.getenv('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
 AI_CHANNELS = set()
 AI_HISTORY = {}
