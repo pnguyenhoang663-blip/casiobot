@@ -694,14 +694,27 @@ async def handle_noitu_move(message):
 
 async def ai_chat(key, messages):
     url = AI_BASE.rstrip('/') + '/chat/completions'
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-                url,
-                json={'model': AI_MODEL, 'messages': messages},
-                headers={'Authorization': 'Bearer ' + key},
-                timeout=aiohttp.ClientTimeout(total=60)) as resp:
-            data = await resp.json()
-    return data['choices'][0]['message']['content']
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                    url,
+                    json={'model': AI_MODEL, 'messages': messages},
+                    headers={'Authorization': 'Bearer ' + key},
+                    timeout=aiohttp.ClientTimeout(total=40)) as resp:
+                if resp.status != 200:
+                    body = (await resp.text())[:300]
+                    raise RuntimeError(f'HTTP {resp.status}: {body}')
+                data = await resp.json()
+    except asyncio.TimeoutError:
+        raise RuntimeError(f'API {AI_BASE} không phản hồi trong 40s (sai endpoint hoặc mạng).')
+    except aiohttp.ClientError as e:
+        raise RuntimeError(f'Kết nối API thất bại: {e}') from e
+    except Exception as e:
+        raise RuntimeError(f'Lỗi gọi API: {e}') from e
+    try:
+        return data['choices'][0]['message']['content']
+    except Exception:
+        raise RuntimeError(f'Response thiếu nội dung: {str(data)[:300]}')
 
 
 async def cmd_ai_join(message, args):
