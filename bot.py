@@ -7,6 +7,7 @@ import re
 import subprocess
 import time
 
+import aiohttp
 import discord
 from PIL import Image
 
@@ -34,6 +35,12 @@ try:
 except Exception:
     web = None
 
+AI_MODEL = os.getenv('AI_MODEL', 'oc/deepseek-v4-flash-free')
+AI_BASE = os.getenv('AI_BASE_URL', 'https://omniroute.ai/v1')
+AI_CHANNELS = set()
+AI_HISTORY = {}
+AI_NOKEY_ONCE = set()
+
 intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Client(intents=intents)
@@ -47,7 +54,7 @@ def save_config():
 def guild_settings(guild_id):
     gid = str(guild_id)
     if gid not in CONFIG['guilds']:
-        CONFIG['guilds'][gid] = {'channel': None, 'search580': None, 'search880': None}
+        CONFIG['guilds'][gid] = {'channel': None, 'search580': None, 'search880': None, 'ai_key': None}
     return CONFIG['guilds'][gid]
 
 
@@ -101,7 +108,7 @@ async def read_image(attachment):
 
 def build_page_chung():
     embed = discord.Embed(title='📖 Lệnh chung', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/3 - Chọn trang khác bên dưới để xem tiếp')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/4 - Chọn trang khác bên dưới để xem tiếp')
     embed.add_field(name=f'`{PREFIX}help`', value='Mở ra bảng hướng dẫn', inline=False)
     embed.add_field(name=f'`{PREFIX}ping`', value='Ping xem bot còn không', inline=False)
     embed.add_field(name=f'`{PREFIX}setchannel <id>`', value='Set kênh bot chỉ được hoạt động tại kênh đó (Chỉ có quyền admin)', inline=False)
@@ -112,7 +119,7 @@ def build_page_chung():
 
 def build_page_casio():
     embed = discord.Embed(title='🧮 Casio tools', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/3')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/4')
     embed.add_field(name=f'`{PREFIX}comp580 <asm>`', value='Compiler asm theo model 580vnx', inline=False)
     embed.add_field(name=f'`{PREFIX}comp880 <asm>`', value='Compiler asm theo model 880btg', inline=False)
     embed.add_field(name=f'`{PREFIX}decomp <model> <hex>`', value='Decomp theo model (580 hoặc 880)', inline=False)
@@ -132,7 +139,7 @@ def build_page_casio():
 
 def build_page_games():
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/3 - Vui là chính 😎')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/4 - Vui là chính 😎')
     embed.add_field(name=f'`{PREFIX}noitu`', value='Bắt đầu nối từ với từ ngẫu nhiên (`p!noitu 1` hoặc `p!noitu 2` chọn chế độ)', inline=False)
     embed.add_field(name=f'`{PREFIX}noitiep <1/2>`', value='Chọn chế độ: 1. Nối 1 lần (mỗi người chỉ nối 1 từ) / 2. Nối nhiều (nối liên tiếp)', inline=False)
     embed.add_field(name=f'`{PREFIX}dung`', value='Tạm dừng trò chơi tạm thời', inline=False)
@@ -142,12 +149,25 @@ def build_page_games():
     return embed
 
 
+def build_page_ai():
+    embed = discord.Embed(title='🤖 AI', color=0x7b68ee)
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 4/4 - Nói chuyện với AI')
+    embed.add_field(name=f'`{PREFIX}join`', value='Bot vào cuộc hội thoại, không cần ping hay reply', inline=False)
+    embed.add_field(name=f'`{PREFIX}leave`', value='Bot rời cuộc hội thoại, cần ping hoặc reply', inline=False)
+    embed.add_field(name=f'`{PREFIX}setkey <key>`', value='Set key', inline=False)
+    embed.add_field(name=f'`{PREFIX}delkey`', value='Xoá key hiện tại', inline=False)
+    embed.add_field(name=f'`{PREFIX}showkey`', value='Xem key hiện tại', inline=False)
+    embed.add_field(name='🧠 Model', value=f'`{AI_MODEL}` — qua OmniRoute (set key bằng p!setkey)', inline=False)
+    return embed
+
+
 class HelpSelect(discord.ui.Select):
     def __init__(self, pages):
         options = [
             discord.SelectOption(label='Lệnh chung', value='0', emoji='📖'),
             discord.SelectOption(label='Casio tools', value='1', emoji='🧮'),
             discord.SelectOption(label='Nối từ', value='2', emoji='🎮'),
+            discord.SelectOption(label='AI', value='3', emoji='🤖'),
         ]
         super().__init__(placeholder='Chọn trang hướng dẫn', options=options, row=0)
         self.pages = pages
@@ -200,7 +220,7 @@ class VdDocsView(discord.ui.View):
 # ---------------- LỆNH CHUNG ----------------
 
 async def cmd_help(message, args):
-    pages = [build_page_chung(), build_page_casio(), build_page_games()]
+    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai()]
     view = HelpView(pages)
     msg = await message.reply(embed=pages[0], view=view)
     view.message = msg
@@ -672,6 +692,96 @@ async def handle_noitu_move(message):
     await message.reply(f'➡️ **{content}** → nối tiếp bằng từ **{g["need_word_d"]}**')
 
 
+async def ai_chat(key, messages):
+    url = AI_BASE.rstrip('/') + '/chat/completions'
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+                url,
+                json={'model': AI_MODEL, 'messages': messages},
+                headers={'Authorization': 'Bearer ' + key},
+                timeout=aiohttp.ClientTimeout(total=60)) as resp:
+            data = await resp.json()
+    return data['choices'][0]['message']['content']
+
+
+async def cmd_ai_join(message, args):
+    ch = message.channel.id
+    AI_CHANNELS.add(ch)
+    AI_HISTORY.setdefault(ch, [])
+    await message.reply('🤖 Bot đã vào hội thoại! Từ giờ nói chuyện trong kênh này **không cần ping hay reply**. (Muốn rời: p!leave)')
+
+
+async def cmd_ai_leave(message, args):
+    ch = message.channel.id
+    AI_CHANNELS.discard(ch)
+    AI_HISTORY.pop(ch, None)
+    AI_NOKEY_ONCE.discard(ch)
+    await message.reply('👋 Bot đã rời hội thoại! Muốn nói chuyện thì **ping @bot hoặc reply tin của bot** nhé.')
+
+
+async def cmd_ai_setkey(message, args):
+    key = args.strip()
+    if not key:
+        await message.reply('Cách dùng: `p!setkey <key>`')
+        return
+    guild_settings(message.guild.id)['ai_key'] = key
+    save_config()
+    await message.reply('✅ Đã lưu key cho server này.')
+
+
+async def cmd_ai_delkey(message, args):
+    guild_settings(message.guild.id)['ai_key'] = None
+    save_config()
+    await message.reply('🗑️ Đã xoá key hiện tại.')
+
+
+async def cmd_ai_showkey(message, args):
+    key = guild_settings(message.guild.id).get('ai_key')
+    if key:
+        masked = key[:8] + '*' * min(12, max(0, len(key) - 8))
+    else:
+        masked = 'Chưa có key'
+    await message.reply(f'🔑 Key: `{masked}`\n🧠 Model: `{AI_MODEL}`\n🌐 API: `{AI_BASE}`')
+
+
+async def handle_ai_message(message):
+    if message.author.bot or not message.guild:
+        return
+    name, _ = parse(message.content)
+    if name is not None:
+        return
+    ch = message.channel.id
+    joined = ch in AI_CHANNELS
+    mentioned = bot.user in message.mentions
+    replied_bot = bool(message.reference and message.reference.resolved
+                       and message.reference.resolved.author == bot.user)
+    if not (joined or mentioned or replied_bot):
+        return
+    key = guild_settings(message.guild.id).get('ai_key')
+    if not key:
+        if ch not in AI_NOKEY_ONCE:
+            AI_NOKEY_ONCE.add(ch)
+            await message.reply('🔑 Chưa set key AI cho server. Dùng `p!setkey <key>` để nói chuyện với AI.')
+        return
+    user_text = message.content
+    if mentioned:
+        user_text = re.sub(r'<@!?(\d+)>', '', user_text).strip()
+    hist = AI_HISTORY.setdefault(ch, [])
+    hist = (hist + [{'role': 'user', 'content': user_text}])[-20:]
+    msgs = [{'role': 'system', 'content': 'Bạn là Casiobot - bot Discord tiếng Việt về máy tính Casio (580vnx/880btg) và trò chơi. Trả lời ngắn gọn, thân thiện, đúng trọng tâm, bằng tiếng Việt.'}] + hist
+    try:
+        async with message.channel.typing():
+            reply = await ai_chat(key, msgs)
+    except Exception as e:
+        await message.reply(f'❌ Lỗi AI: `{e}`')
+        AI_HISTORY.pop(ch, None)
+        return
+    if len(reply) > 1900:
+        reply = reply[:1900] + '...'
+    AI_HISTORY[ch] = (hist + [{'role': 'assistant', 'content': reply}])[-20:]
+    await message.reply(reply)
+
+
 COMMANDS = {
     'help': cmd_help,
     'ping': cmd_ping,
@@ -697,6 +807,11 @@ COMMANDS = {
     'dung': cmd_dung,
     'tiep': cmd_tiep,
     'stop': cmd_stop,
+    'join': cmd_ai_join,
+    'leave': cmd_ai_leave,
+    'setkey': cmd_ai_setkey,
+    'delkey': cmd_ai_delkey,
+    'showkey': cmd_ai_showkey,
 }
 
 
@@ -723,6 +838,7 @@ async def on_message(message):
     name, args = parse(message.content)
     if name is None:
         await handle_noitu_move(message)
+        await handle_ai_message(message)
         return
     lc = locked_channel_id(message.guild.id)
     if lc and message.channel.id != lc:
