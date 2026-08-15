@@ -724,44 +724,44 @@ async def discover_models(key):
 
 async def ai_chat(key, messages):
     url = AI_BASE.rstrip('/') + '/chat/completions'
+    model = AI_MODEL
     last_err = None
-    for model in AI_MODELS:
-        for attempt in range(3):
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                            url,
-                            json={'model': model, 'messages': messages},
-                            headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
-                            timeout=aiohttp.ClientTimeout(total=45)) as resp:
-                        if resp.status in (429, 503):
-                            last_err = f'HTTP {resp.status}: model {model} đang quá tải (lần {attempt + 1}/3)...'
-                            await asyncio.sleep(5 * (attempt + 1))
-                            continue
-                        if resp.status == 404:
-                            last_err = f'Model {model} không khả dụng'
-                            break
-                        if resp.status != 200:
-                            raise RuntimeError(f'HTTP {resp.status}: {(await resp.text())[:250]}')
-                        data = await resp.json()
-                try:
-                    return data['choices'][0]['message']['content']
-                except Exception:
-                    raise RuntimeError(f'Response thiếu nội dung: {str(data)[:200]}')
-            except asyncio.TimeoutError:
-                last_err = 'API phản hồi quá chậm (>45s), thử lại...'
-                await asyncio.sleep(5 * (attempt + 1))
-            except aiohttp.ClientError as e:
-                last_err = f'Kết nối API thất bại: {e}'
-                await asyncio.sleep(5 * (attempt + 1))
-    discovered = await discover_models(key)
-    ordered = [m for m in discovered if 'flash' in m] + [m for m in discovered if 'flash' not in m]
-    for model in ordered[:10]:
+    for attempt in range(3):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                         url,
                         json={'model': model, 'messages': messages},
+                        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+                        timeout=aiohttp.ClientTimeout(total=45)) as resp:
+                    if resp.status in (429, 503):
+                        last_err = f'HTTP {resp.status}: quá tải (lần {attempt + 1}/3)...'
+                        await asyncio.sleep(5 * (attempt + 1))
+                        continue
+                    if resp.status == 404:
+                        last_err = f'Model {model} không khả dụng'
+                        break
+                    if resp.status != 200:
+                        raise RuntimeError(f'HTTP {resp.status}: {(await resp.text())[:250]}')
+                    data = await resp.json()
+            try:
+                return data['choices'][0]['message']['content']
+            except Exception:
+                raise RuntimeError(f'Response thiếu nội dung: {str(data)[:200]}')
+        except asyncio.TimeoutError:
+            last_err = 'API phản hồi quá chậm (>45s), thử lại...'
+            await asyncio.sleep(5 * (attempt + 1))
+        except aiohttp.ClientError as e:
+            last_err = f'Kết nối API thất bại: {e}'
+            await asyncio.sleep(5 * (attempt + 1))
+    discovered = await discover_models(key)
+    ordered = [m for m in discovered if 'flash' in m] + [m for m in discovered if 'flash' not in m]
+    for m in ordered[:10]:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                        url,
+                        json={'model': m, 'messages': messages},
                         headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
                         timeout=aiohttp.ClientTimeout(total=45)) as resp:
                     if resp.status == 200:
