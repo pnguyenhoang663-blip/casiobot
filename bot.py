@@ -520,7 +520,7 @@ async def cmd_noitu(message, args):
     if a in ('2', 'nhieu', 'nhiều'):
         mode = 2
     start = noitu.pick_start()
-    start_base_words = [b for b in (noitu.normalize(t) for t in start.split()) if len(b) >= 2]
+    start_base_words = [b for b in (noitu.canon(t) for t in start.split()) if len(b) >= 2]
     need_base = start_base_words[-1]
     last_start = start.split()[-1]
     GAMES[str(message.channel.id)] = {
@@ -597,7 +597,7 @@ async def handle_noitu_move(message):
     tokens = content.split()
     if not tokens or len(tokens) > 2:
         return
-    base = [t for t in (noitu.normalize(x) for x in tokens) if len(t) >= 2]
+    base = [t for t in (noitu.canon(x) for x in tokens) if len(t) >= 2]
     if not base:
         return
     if len(base) == 1:

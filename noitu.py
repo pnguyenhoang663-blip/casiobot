@@ -13,13 +13,13 @@ DISPLAY = {}
 WORD_DISPLAY = {}
 RAW = []
 
+_NUM = re.compile(r'^\d+$')
 
-def normalize(s):
-    s = str(s).lower().replace('đ', 'd')
-    s = unicodedata.normalize('NFKD', s)
-    s = ''.join(c for c in s if not unicodedata.combining(c))
-    s = re.sub(r'[^a-z]', '', s)
-    return s
+
+def canon(s):
+    """Chuẩn hoá NHƯNG GIỮ dấu tiếng Việt (NFC, lowercase, chỉ giữ chữ cái)."""
+    s = unicodedata.normalize('NFC', str(s).lower())
+    return ''.join(c for c in s if c.isalpha())
 
 
 def load(path=DICT_PATH):
@@ -37,24 +37,22 @@ def load(path=DICT_PATH):
                 if not raw_line:
                     continue
                 raw_words = raw_line.split()
-                base_words = [normalize(t) for t in raw_words]
-                base_words = [b for b in base_words if len(b) >= 2]
-                if not base_words:
+                cw = [canon(t) for t in raw_words]
+                cw = [w for w in cw if len(w) >= 2]
+                if not cw:
                     continue
-                phrase_base = ' '.join(base_words)
-                PHRASES.add(phrase_base)
-                DISPLAY.setdefault(phrase_base, raw_line)
-                START_BY_WORD.setdefault(base_words[0], set()).add(phrase_base)
+                phrase = ' '.join(cw)
+                PHRASES.add(phrase)
+                DISPLAY.setdefault(phrase, raw_line)
+                START_BY_WORD.setdefault(cw[0], set()).add(phrase)
                 RAW.append(raw_line)
-                for orig, b in zip(raw_words, [normalize(t) for t in raw_words]):
-                    if len(b) >= 2:
-                        WORDS.add(b)
-                        WORD_DISPLAY.setdefault(b, orig)
+                for orig, w in zip(raw_words, cw):
+                    WORDS.add(w)
+                    WORD_DISPLAY.setdefault(w, orig)
 
 
 def display_word(d):
-    base = normalize(d)
-    return WORD_DISPLAY.get(base, d)
+    return WORD_DISPLAY.get(canon(d), str(d))
 
 
 def can_continue(word, used):
@@ -67,7 +65,12 @@ def can_continue(word, used):
 
 
 def pick_start():
-    cand = [p for p in PHRASES if p.count(' ') == 1 and 3 <= len(p.replace(' ', '')) <= 8]
+    cand = [
+        p for p in PHRASES
+        if p.count(' ') == 1
+        and 3 <= len(p.replace(' ', '')) <= 8
+        and len(set(p.split())) == len(p.split())
+    ]
     if not cand:
         cand = list(PHRASES)
     random.shuffle(cand)
