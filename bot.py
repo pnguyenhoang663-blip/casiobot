@@ -631,7 +631,7 @@ async def handle_noitu_move(message):
         await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được sau từ **{g["need_word_d"]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
         GAMES.pop(ch, None)
         return
-    await message.reply(f'➡️ **{content}** → nối tiếp bằng từ **{g["need_word_d"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
+    await message.reply(f'➡️ **{content}** → nối tiếp bằng từ **{g["need_word_d"]}**')
 
 
 COMMANDS = {
