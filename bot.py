@@ -36,7 +36,8 @@ try:
 except Exception:
     web = None
 
-AI_MODEL = os.getenv('AI_MODEL', 'gemini-2.5-flash')
+AI_MODELS = [m.strip() for m in os.getenv('AI_MODELS', 'gemini-3-flash,gemini-2.5-flash-lite,gemini-2.5-flash').split(',') if m.strip()] or ['gemini-3-flash']
+AI_MODEL = AI_MODELS[0]
 AI_BASE = os.getenv('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
 AI_CHANNELS = set()
 AI_HISTORY = {}
@@ -707,31 +708,35 @@ async def handle_noitu_move(message):
 async def ai_chat(key, messages):
     url = AI_BASE.rstrip('/') + '/chat/completions'
     last_err = None
-    for attempt in range(3):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                        url,
-                        json={'model': AI_MODEL, 'messages': messages},
-                        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
-                        timeout=aiohttp.ClientTimeout(total=45)) as resp:
-                    if resp.status in (429, 503):
-                        last_err = f'HTTP {resp.status}: model đang quá tải, thử lại (lần {attempt + 1}/3)...'
-                        await asyncio.sleep(5 * (attempt + 1))
-                        continue
-                    if resp.status != 200:
-                        raise RuntimeError(f'HTTP {resp.status}: {(await resp.text())[:250]}')
-                    data = await resp.json()
+    for model in AI_MODELS:
+        for attempt in range(3):
             try:
-                return data['choices'][0]['message']['content']
-            except Exception:
-                raise RuntimeError(f'Response thiếu nội dung: {str(data)[:200]}')
-        except asyncio.TimeoutError:
-            last_err = 'API phản hồi quá chậm (>45s), thử lại...'
-            await asyncio.sleep(5 * (attempt + 1))
-        except aiohttp.ClientError as e:
-            last_err = f'Kết nối API thất bại: {e}'
-            await asyncio.sleep(5 * (attempt + 1))
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                            url,
+                            json={'model': model, 'messages': messages},
+                            headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+                            timeout=aiohttp.ClientTimeout(total=45)) as resp:
+                        if resp.status in (429, 503):
+                            last_err = f'HTTP {resp.status}: model {model} đang quá tải (lần {attempt + 1}/3)...'
+                            await asyncio.sleep(5 * (attempt + 1))
+                            continue
+                        if resp.status == 404:
+                            last_err = f'Model {model} không khả dụng'
+                            break
+                        if resp.status != 200:
+                            raise RuntimeError(f'HTTP {resp.status}: {(await resp.text())[:250]}')
+                        data = await resp.json()
+                try:
+                    return data['choices'][0]['message']['content']
+                except Exception:
+                    raise RuntimeError(f'Response thiếu nội dung: {str(data)[:200]}')
+            except asyncio.TimeoutError:
+                last_err = 'API phản hồi quá chậm (>45s), thử lại...'
+                await asyncio.sleep(5 * (attempt + 1))
+            except aiohttp.ClientError as e:
+                last_err = f'Kết nối API thất bại: {e}'
+                await asyncio.sleep(5 * (attempt + 1))
     raise RuntimeError(last_err or 'Không thể gọi API AI.')
 
 
