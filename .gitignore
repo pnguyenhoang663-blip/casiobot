@@ -5,4 +5,5 @@ config.json
 .git/
 bot_out.log
 bot_err.log
+bot_run.log
 t.py

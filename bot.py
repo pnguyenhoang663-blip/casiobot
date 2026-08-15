@@ -2,6 +2,7 @@ import asyncio
 import io
 import json
 import os
+import random
 import re
 import subprocess
 import time
@@ -10,6 +11,7 @@ import discord
 from PIL import Image
 
 import compiler_lib as cl
+import noitu
 import vd_docs
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.json')
@@ -130,8 +132,12 @@ def build_page_casio():
 def build_page_games():
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
     embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/3 - Vui là chính 😎')
-    embed.add_field(name='🕹️ Đang phát triển...', value='Các lệnh trò chơi đang được chuẩn bị và sẽ sớm xuất hiện tại đây!', inline=False)
-    embed.add_field(name='💡 Gợi ý', value=f'Gõ `{PREFIX}comp580` để tự viết game chạy trên máy tính Casio của bạn 😉', inline=False)
+    embed.add_field(name=f'`{PREFIX}noitu`', value='Bắt đầu nối từ với từ ngẫu nhiên (`p!noitu 1` hoặc `p!noitu 2` chọn chế độ)', inline=False)
+    embed.add_field(name=f'`{PREFIX}noitiep <1/2>`', value='Chọn chế độ: 1. Nối 1 lần (mỗi người chỉ nối 1 từ) / 2. Nối nhiều (nối liên tiếp)', inline=False)
+    embed.add_field(name=f'`{PREFIX}dung`', value='Tạm dừng trò chơi tạm thời', inline=False)
+    embed.add_field(name=f'`{PREFIX}tiep`', value='Tiếp tục trò chơi đang tạm dừng', inline=False)
+    embed.add_field(name=f'`{PREFIX}stop`', value='Kết thúc cuộc chơi', inline=False)
+    embed.add_field(name='📜 Luật chơi', value='- Trả lời đúng → ✅\n- Trả lời sai → ❌\n- Người đã nối rồi mà nối tiếp (chế độ 1 lần) → ⏳\n- Ai nối 1 từ không ai/có từ tiếp theo nối được nữa → người đó **THẮNG** 🏆', inline=False)
     return embed
 
 
@@ -505,6 +511,118 @@ async def do_find(message, args, key, model):
     await message.reply(text)
 
 
+GAMES = {}
+
+
+async def cmd_noitu(message, args):
+    mode = 1
+    a = args.strip().lower()
+    if a in ('2', 'nhieu', 'nhiều'):
+        mode = 2
+    start = noitu.pick_start()
+    start_base = noitu.normalize(start)
+    GAMES[str(message.channel.id)] = {
+        'letter': start_base[-1],
+        'used': {start_base},
+        'last_player': None,
+        'paused': False,
+        'mode': mode,
+        'count': 1,
+    }
+    mode_name = 'Nối 1 lần' if mode == 1 else 'Nối nhiều'
+    embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
+    embed.add_field(name='🔤 Từ đầu', value=f'**{start}**', inline=False)
+    embed.add_field(name='➡️ Nối tiếp chữ', value=f'**{start_base[-1]}**', inline=False)
+    embed.add_field(name='⚙️ Chế độ', value=mode_name, inline=False)
+    embed.set_footer(text=f'{PREFIX}noitiep 1/2 đổi chế độ | {PREFIX}dung | {PREFIX}tiep | {PREFIX}stop')
+    await message.reply(embed=embed)
+
+
+async def cmd_noitiep(message, args):
+    g = GAMES.get(str(message.channel.id))
+    a = args.strip().lower()
+    if g is None:
+        await message.reply(f'Chưa có trò chơi nào ở kênh này. Gõ `{PREFIX}noitu` để bắt đầu!\n\nCó 2 chế độ:\n1. **Nối 1 lần** - mỗi người chỉ nối 1 từ, chờ người khác nối tiếp\n2. **Nối nhiều** - nối được nhiều từ liên tiếp\nDùng `{PREFIX}noitu 1` hoặc `{PREFIX}noitu 2` để chọn.')
+        return
+    if a in ('2', 'nhieu', 'nhiều'):
+        g['mode'] = 2
+        await message.reply('✅ Đã đổi sang chế độ **Nối nhiều** - nối được nhiều từ liên tiếp!')
+    elif a in ('1', 'mot', 'một', 'lan', 'lần'):
+        g['mode'] = 1
+        await message.reply('✅ Đã đổi sang chế độ **Nối 1 lần** - mỗi người chỉ nối 1 từ, chờ người khác!')
+    else:
+        await message.reply('Có 2 chế độ:\n1. **Nối 1 lần** - mỗi người chỉ nối 1 từ\n2. **Nối nhiều** - nối được nhiều từ liên tiếp\n\nĐổi chế độ bằng `p!noitiep 1` hoặc `p!noitiep 2`.')
+
+
+async def cmd_dung(message, args):
+    g = GAMES.get(str(message.channel.id))
+    if not g:
+        await message.reply('Không có trò nối từ nào đang hoạt động.')
+        return
+    if g['paused']:
+        await message.reply('⏸️ Trò chơi đang được tạm dừng rồi.')
+        return
+    g['paused'] = True
+    await message.reply('⏸️ Tạm dừng trò chơi! Gõ `p!tiep` để tiếp tục.')
+
+
+async def cmd_tiep(message, args):
+    g = GAMES.get(str(message.channel.id))
+    if not g:
+        await message.reply('Không có trò nối từ nào đang hoạt động.')
+        return
+    if not g['paused']:
+        await message.reply('⏩ Trò chơi vẫn đang chạy mà!')
+        return
+    g['paused'] = False
+    await message.reply(f'▶️ Tiếp tục! Nối tiếp chữ **{g["letter"]}**.')
+
+
+async def cmd_stop(message, args):
+    if GAMES.pop(str(message.channel.id), None):
+        await message.reply('🏁 Đã kết thúc trò nối từ!')
+    else:
+        await message.reply('Không có trò nối từ nào để kết thúc.')
+
+
+async def handle_noitu_move(message):
+    ch = str(message.channel.id)
+    g = GAMES.get(ch)
+    if not g or g['paused']:
+        return
+    content = message.content.strip()
+    if ' ' in content:
+        return
+    w = noitu.normalize(content)
+    if len(w) < 2:
+        return
+    if g['mode'] == 1 and g['last_player'] == message.author.id:
+        try:
+            await message.add_reaction('⏳')
+        except Exception:
+            pass
+        return
+    if w in g['used'] or w not in noitu.WORDS or w[0] != g['letter']:
+        try:
+            await message.add_reaction('❌')
+        except Exception:
+            pass
+        return
+    try:
+        await message.add_reaction('✅')
+    except Exception:
+        pass
+    g['used'].add(w)
+    g['letter'] = w[-1]
+    g['last_player'] = message.author.id
+    g['count'] += 1
+    if not noitu.can_continue(w[-1], g['used']):
+        await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được chữ **{w[-1]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
+        GAMES.pop(ch, None)
+        return
+    await message.reply(f'➡️ Chữ tiếp theo: **{w[-1]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
+
+
 COMMANDS = {
     'help': cmd_help,
     'ping': cmd_ping,
@@ -524,6 +642,11 @@ COMMANDS = {
     'set880': cmd_set880,
     'find580': cmd_find580,
     'find880': cmd_find880,
+    'noitu': cmd_noitu,
+    'noitiep': cmd_noitiep,
+    'dung': cmd_dung,
+    'tiep': cmd_tiep,
+    'stop': cmd_stop,
 }
 
 
@@ -549,6 +672,7 @@ async def on_message(message):
         return
     name, args = parse(message.content)
     if name is None:
+        await handle_noitu_move(message)
         return
     lc = locked_channel_id(message.guild.id)
     if lc and message.channel.id != lc:
@@ -581,6 +705,7 @@ async def web_main():
 
 if __name__ == '__main__':
     cl.ensure_output_dir()
+    noitu.load()
     if not TOKEN:
         print('❌ Thiếu token (đặt biến môi trường TOKEN hoặc sửa config.json)')
     else:
