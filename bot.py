@@ -35,8 +35,8 @@ try:
 except Exception:
     web = None
 
-AI_MODEL = os.getenv('AI_MODEL', 'oc/deepseek-v4-flash-free')
-AI_BASE = os.getenv('AI_BASE_URL', 'http://localhost:20128/v1')
+AI_MODEL = os.getenv('AI_MODEL', 'gemini-2.0-flash')
+AI_BASE = os.getenv('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
 AI_CHANNELS = set()
 AI_HISTORY = {}
 AI_NOKEY_ONCE = set()
@@ -157,7 +157,7 @@ def build_page_ai():
     embed.add_field(name=f'`{PREFIX}setkey <key>`', value='Set key', inline=False)
     embed.add_field(name=f'`{PREFIX}delkey`', value='Xoá key hiện tại', inline=False)
     embed.add_field(name=f'`{PREFIX}showkey`', value='Xem key hiện tại', inline=False)
-    embed.add_field(name='🧠 Model', value=f'`{AI_MODEL}` — qua OmniRoute (set key bằng p!setkey)', inline=False)
+    embed.add_field(name='🧠 Model', value=f'`{AI_MODEL}` — Google Gemini (free). Lấy key tại aistudio.google.com/apikey, set bằng `{PREFIX}setkey`', inline=False)
     return embed
 
 
@@ -699,7 +699,7 @@ async def ai_chat(key, messages):
             async with session.post(
                     url,
                     json={'model': AI_MODEL, 'messages': messages},
-                    headers={'Authorization': 'Bearer ' + key},
+                    headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
                     timeout=aiohttp.ClientTimeout(total=40)) as resp:
                 if resp.status != 200:
                     body = (await resp.text())[:300]
