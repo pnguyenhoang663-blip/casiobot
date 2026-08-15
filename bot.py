@@ -118,7 +118,7 @@ def build_page_casio():
     embed.add_field(name=f'`{PREFIX}phantich <asm>`', value='Phân tích asm đã đưa (demo) - file .txt hoặc dán trực tiếp, Chỉ dành cho 580vnx', inline=False)
     embed.add_field(name=f'`{PREFIX}p2b <ảnh>`', value='Dịch ảnh sang trắng đen theo 192x63 và đưa hex ra theo dạng .txt', inline=False)
     embed.add_field(name=f'`{PREFIX}h2b <hex>`', value='Dịch hex sang ảnh trắng đen theo 192x63', inline=False)
-    embed.add_field(name=f'`{PREFIX}ganhex <hex>`', value='Gán hex đã đưa vào biến A, B, C (chưa ra mắt)', inline=False)
+    embed.add_field(name=f'`{PREFIX}ganhex <hex>`', value='Gán hex đã đưa vào biến A, B, C', inline=False)
     embed.add_field(name=f'`{PREFIX}dichhex <580/880> <hex>`', value='Dịch hex sang token (580vnx/880btg)', inline=False)
     embed.add_field(name=f'`{PREFIX}set580 <id>`', value='Set id kênh bot sẽ tìm tin nhắn (Chỉ admin)', inline=False)
     embed.add_field(name=f'`{PREFIX}set880 <id>`', value='Set id kênh bot sẽ tìm tin nhắn (Chỉ admin)', inline=False)
@@ -392,7 +392,19 @@ async def cmd_h2b(message, args):
 
 
 async def cmd_ganhex(message, args):
-    await message.reply('🔒 Lệnh `c!ganhex` chưa ra mắt!')
+    hexstr = cl.clean_hex(args)
+    if not hexstr or len(hexstr) % 2 != 0:
+        await message.reply(f'Cách dùng: `{PREFIX}ganhex <hex>`')
+        return
+    out, byte_1 = cl.gan_hex(hexstr)
+    text = out
+    if byte_1:
+        text += '\n\nSố byte cần gán: ' + ' '.join(byte_1)
+    else:
+        text += '\n\nKhông có byte để gán.'
+    embed = discord.Embed(title='🧬 Gán hex (A/B/C)', color=0x66ccff)
+    embed.add_field(name='Kết quả', value=f'```\n{text}\n```', inline=False)
+    await message.reply(embed=embed)
 
 
 async def cmd_dichhex(message, args):

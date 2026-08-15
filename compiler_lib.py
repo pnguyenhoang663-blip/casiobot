@@ -517,6 +517,95 @@ def hex_to_tokens(model, hexstr):
     return result
 
 
+BYTE_TABLE = [
+    0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1,
+    2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1,
+    2, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+]
+
+
+def _contains_letter(tok):
+    return any(ch in 'ABCDEF' for ch in tok)
+
+
+def gan_hex(hex_string):
+    s = clean_hex(hex_string)
+    if not s or len(s) % 2 != 0:
+        return 'Hex phải là chuỗi chẵn ký tự.', []
+    raw = [s[i:i + 2].upper() for i in range(0, len(s), 2)]
+    checked = []
+    byte_1 = []
+    i = 0
+    while i < len(raw):
+        t = raw[i]
+        val = int(t, 16)
+        if t.startswith('F'):
+            if i + 1 >= len(raw):
+                break
+            pair = raw[i + 1]
+            checked.append(t)
+            checked.append(pair)
+            byte_1.append(t + pair)
+            i += 2
+            continue
+        if BYTE_TABLE[val] == 0:
+            return 'Hex chứa byte 00 (không hợp lệ).', byte_1
+        elif BYTE_TABLE[val] == 1:
+            checked.append(t)
+            byte_1.append(t)
+        i += 1
+
+    all_toks = ['00', '00'] + checked
+    i = 0
+    while i < len(all_toks):
+        if (i % 8 == 5 or i % 8 == 7) and _contains_letter(all_toks[i]):
+            insert_pos = i
+            if i > 0 and all_toks[i - 1].startswith('F'):
+                insert_pos = i - 1
+            all_toks.insert(insert_pos, '30')
+            i += 1
+        i += 1
+
+    A = all_toks[0:8]
+    B = all_toks[8:16]
+    C = all_toks[16:]
+    if C:
+        C.append('23')
+    elif B:
+        B.append('23')
+    elif A:
+        A.append('23')
+
+    if len(A) + len(B) + len(C) <= 24:
+        if len(A) == 8 and (B or C):
+            A = A[:-1] + ['x10^', A[-1]]
+        if len(B) == 8 and C:
+            B = B[:-1] + ['x10^', B[-1]]
+        if len(C) == 8:
+            C = C[:-1] + ['x10^', C[-1]]
+        parts = []
+        for nm, arr in (('A', A), ('B', B), ('C', C)):
+            if arr:
+                parts.append('%s = 1. %s' % (nm, ' '.join(arr)))
+        out = ':\n'.join(parts)
+    else:
+        out = 'Độ dài hex vượt quá 21 byte.'
+    return out, byte_1
+
+
 def list_examples():
     folder = os.path.join(COMPILER_DIR, '580vnx_ropchain')
     if not os.path.isdir(folder):
