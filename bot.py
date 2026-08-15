@@ -8,6 +8,7 @@ import subprocess
 import time
 
 import aiohttp
+import html
 import discord
 from PIL import Image
 
@@ -40,6 +41,17 @@ AI_BASE = os.getenv('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1
 AI_CHANNELS = set()
 AI_HISTORY = {}
 AI_NOKEY_ONCE = set()
+AI_DOC = ''
+
+
+def load_ai_doc():
+    global AI_DOC
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'doc_extracted.txt')
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            AI_DOC = html.unescape(f.read())
+    except Exception:
+        AI_DOC = ''
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -787,7 +799,13 @@ async def handle_ai_message(message):
         user_text = re.sub(r'<@!?(\d+)>', '', user_text).strip()
     hist = AI_HISTORY.setdefault(ch, [])
     hist = (hist + [{'role': 'user', 'content': user_text}])[-20:]
-    msgs = [{'role': 'system', 'content': 'Bạn là Casiobot - bot Discord tiếng Việt về máy tính Casio (580vnx/880btg) và trò chơi. Trả lời ngắn gọn, thân thiện, đúng trọng tâm, bằng tiếng Việt.'}] + hist
+    sys_base = 'Bạn là Casiobot - bot Discord tiếng Việt về máy tính Casio (580vnx/880btg) và trò chơi. Trả lời ngắn gọn, thân thiện, đúng trọng tâm, bằng tiếng Việt.'
+    if AI_DOC:
+        sys_base += ('\n\nDƯỚI ĐÂY LÀ TÀI LIỆU "HƯỚNG DẪN ROP TRÊN CASIO fx-580VN X" (bởi @Bashamee). '
+                     'Đây là trí nhớ/tham khảo chính của bạn: hãy trả lời câu hỏi về ROP, gadget, hàm Casio '
+                     'dựa đúng nội dung tài liệu, ưu tiên ví dụ có sẵn trong tài liệu. '
+                     'Nếu câu hỏi KHÔNG nằm trong tài liệu thì nói thẳng "nah idk :b".\n\n' + AI_DOC)
+    msgs = [{'role': 'system', 'content': sys_base}] + hist
     try:
         async with message.channel.typing():
             reply = await ai_chat(key, msgs)
@@ -891,6 +909,7 @@ async def web_main():
 if __name__ == '__main__':
     cl.ensure_output_dir()
     noitu.load()
+    load_ai_doc()
     if not TOKEN:
         print('❌ Thiếu token (đặt biến môi trường TOKEN hoặc sửa config.json)')
     else:
