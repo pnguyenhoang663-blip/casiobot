@@ -520,10 +520,9 @@ async def cmd_noitu(message, args):
     if a in ('2', 'nhieu', 'nhiều'):
         mode = 2
     start = noitu.pick_start()
-    start_base = noitu.normalize(start)
     GAMES[str(message.channel.id)] = {
-        'letter': start_base[-1],
-        'used': {start_base},
+        'letter': start[-1],
+        'used': {start},
         'last_player': None,
         'paused': False,
         'mode': mode,
@@ -532,7 +531,7 @@ async def cmd_noitu(message, args):
     mode_name = 'Nối 1 lần' if mode == 1 else 'Nối nhiều'
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
     embed.add_field(name='🔤 Từ đầu', value=f'**{start}**', inline=False)
-    embed.add_field(name='➡️ Nối tiếp chữ', value=f'**{start_base[-1]}**', inline=False)
+    embed.add_field(name='➡️ Nối tiếp chữ', value=f'**{start[-1]}**', inline=False)
     embed.add_field(name='⚙️ Chế độ', value=mode_name, inline=False)
     embed.set_footer(text=f'{PREFIX}noitiep 1/2 đổi chế độ | {PREFIX}dung | {PREFIX}tiep | {PREFIX}stop')
     await message.reply(embed=embed)
@@ -591,18 +590,25 @@ async def handle_noitu_move(message):
     if not g or g['paused']:
         return
     content = message.content.strip()
-    if ' ' in content:
+    tokens = content.split()
+    if not tokens or len(tokens) > 2:
         return
-    w = noitu.normalize(content)
-    if len(w) < 2:
+    base = [t for t in (noitu.normalize(x) for x in tokens) if len(t) >= 2]
+    if not base:
         return
+    if len(base) == 1:
+        phrase = base[0]
+        ok_dict = phrase in noitu.WORDS
+    else:
+        phrase = ' '.join(base)
+        ok_dict = phrase in noitu.PHRASES
     if g['mode'] == 1 and g['last_player'] == message.author.id:
         try:
             await message.add_reaction('⏳')
         except Exception:
             pass
         return
-    if w in g['used'] or w not in noitu.WORDS or w[0] != g['letter']:
+    if phrase in g['used'] or not ok_dict or phrase[0] != g['letter']:
         try:
             await message.add_reaction('❌')
         except Exception:
@@ -612,15 +618,15 @@ async def handle_noitu_move(message):
         await message.add_reaction('✅')
     except Exception:
         pass
-    g['used'].add(w)
-    g['letter'] = w[-1]
+    g['used'].add(phrase)
+    g['letter'] = phrase[-1]
     g['last_player'] = message.author.id
     g['count'] += 1
-    if not noitu.can_continue(w[-1], g['used']):
-        await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được chữ **{w[-1]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
+    if not noitu.can_continue(g['letter'], g['used']):
+        await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được chữ **{g["letter"]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
         GAMES.pop(ch, None)
         return
-    await message.reply(f'➡️ Chữ tiếp theo: **{w[-1]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
+    await message.reply(f'➡️ Chữ tiếp theo: **{g["letter"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
 
 
 COMMANDS = {
