@@ -171,6 +171,7 @@ def build_page_ai():
     embed.add_field(name=f'`{PREFIX}setkey <key>`', value='Set key', inline=False)
     embed.add_field(name=f'`{PREFIX}delkey`', value='Xoá key hiện tại', inline=False)
     embed.add_field(name=f'`{PREFIX}showkey`', value='Xem key hiện tại', inline=False)
+    embed.add_field(name=f'`{PREFIX}models`', value='Xem danh sách model Gemini khả dụng với key', inline=False)
     embed.add_field(name='🧠 Model', value=f'`{AI_MODEL}` — Google Gemini (free). Lấy key tại aistudio.google.com/apikey, set bằng `{PREFIX}setkey`', inline=False)
     return embed
 
@@ -706,6 +707,21 @@ async def handle_noitu_move(message):
     await message.reply(f'➡️ **{content}** → nối tiếp bằng từ **{g["need_word_d"]}**')
 
 
+async def discover_models(key):
+    try:
+        url = AI_BASE.rstrip('/') + '/models'
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url,
+                                   headers={'Authorization': 'Bearer ' + key},
+                                   timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+        return [m.get('id') for m in data.get('data', []) if m.get('id')]
+    except Exception:
+        return []
+
+
 async def ai_chat(key, messages):
     url = AI_BASE.rstrip('/') + '/chat/completions'
     last_err = None
@@ -738,6 +754,23 @@ async def ai_chat(key, messages):
             except aiohttp.ClientError as e:
                 last_err = f'Kết nối API thất bại: {e}'
                 await asyncio.sleep(5 * (attempt + 1))
+    discovered = await discover_models(key)
+    ordered = [m for m in discovered if 'flash' in m] + [m for m in discovered if 'flash' not in m]
+    for model in ordered[:10]:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                        url,
+                        json={'model': model, 'messages': messages},
+                        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+                        timeout=aiohttp.ClientTimeout(total=45)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        return data['choices'][0]['message']['content']
+        except Exception:
+            continue
+    if discovered:
+        raise RuntimeError((last_err or 'Không thể gọi API AI.') + '\nModel khả dụng: ' + ', '.join(discovered[:10]))
     raise RuntimeError(last_err or 'Không thể gọi API AI.')
 
 
@@ -779,6 +812,18 @@ async def cmd_ai_showkey(message, args):
     else:
         masked = 'Chưa có key'
     await message.reply(f'🔑 Key: `{masked}`\n🧠 Model: `{AI_MODEL}`\n🌐 API: `{AI_BASE}`')
+
+
+async def cmd_ai_models(message, args):
+    key = guild_settings(message.guild.id).get('ai_key') or AI_KEY
+    if not key:
+        await message.reply('Chưa có key (`p!setkey`) để liệt kê model.')
+        return
+    ids = await discover_models(key)
+    if not ids:
+        await message.reply('❌ Không lấy được danh sách model.')
+        return
+    await message.reply('🧠 Model khả dụng:\n' + '\n'.join(ids[:30]) + ('\n...' if len(ids) > 30 else ''))
 
 
 async def handle_ai_message(message):
@@ -856,6 +901,7 @@ COMMANDS = {
     'setkey': cmd_ai_setkey,
     'delkey': cmd_ai_delkey,
     'showkey': cmd_ai_showkey,
+    'models': cmd_ai_models,
 }
 
 
