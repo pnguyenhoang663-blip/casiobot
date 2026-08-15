@@ -98,6 +98,14 @@ def extract_id(text):
     return int(m.group()) if m else None
 
 
+def miss_msg(cmd, usage):
+    return f'⚠️ **Thiếu tham số** `{cmd}`! Cách dùng: `{usage}`'
+
+
+def wrong_msg(cmd, detail, usage):
+    return f'❌ **Sai** `{cmd}` ({detail})! Cách dùng: `{usage}`'
+
+
 def clean_code(text):
     text = text.strip()
     lines = text.split('\n')
@@ -252,11 +260,11 @@ async def cmd_setchannel(message, args):
         return
     cid = extract_id(args)
     if not cid:
-        await message.reply(f'Cách dùng: `{PREFIX}setchannel <id>`')
+        await message.reply(miss_msg('setchannel', f'{PREFIX}setchannel <id>'))
         return
     chan = message.guild.get_channel(cid)
     if not chan:
-        await message.reply('❌ Không tìm thấy kênh có id đó!')
+        await message.reply(wrong_msg('setchannel', 'không tìm thấy kênh có id đó', f'{PREFIX}setchannel <id>'))
         return
     guild_settings(message.guild.id)['channel'] = cid
     save_config()
@@ -295,7 +303,7 @@ async def cmd_comp880(message, args):
 
 async def do_comp(message, args, model):
     if not args:
-        await message.reply(f'Cách dùng: `{PREFIX}comp{model} <asm>`\nCó thể dán code asm trong khối ```asm ... ```')
+        await message.reply(miss_msg(f'comp{model}', f'{PREFIX}comp{model} <asm>'))
         return
     asm = clean_code(args)
     try:
@@ -341,9 +349,13 @@ async def cmd_decomp(message, args):
         att = message.attachments[0]
         if att.filename.lower().endswith('.txt'):
             hexstr = (await att.read()).decode('utf-8', errors='replace')
-    hexstr = cl.clean_hex(hexstr)
-    if not hexstr or len(hexstr) % 2 != 0:
-        await message.reply(f'Cách dùng: `{PREFIX}decomp <model> <hex>` (model: 580 hoặc 880)\nHoặc đính kèm file .txt chứa hex.')
+    clean_check = cl.clean_hex(hexstr)
+    if not clean_check:
+        await message.reply(miss_msg('decomp', f'{PREFIX}decomp <model> <hex>'))
+        return
+    hexstr = clean_check
+    if len(hexstr) % 2 != 0:
+        await message.reply(wrong_msg('decomp', 'hex phải có số ký tự chẵn', f'{PREFIX}decomp <model> <hex>'))
         return
     model_name = '580vnx' if model == '580' else '880btg'
     async with message.channel.typing():
@@ -366,7 +378,7 @@ async def cmd_vd(message, args):
 
 async def cmd_phantich(message, args):
     if not args and not message.attachments:
-        await message.reply(f'Cách dùng: `{PREFIX}phantich <asm>` hoặc đính kèm file .txt chứa asm.')
+        await message.reply(miss_msg('phantich', f'{PREFIX}phantich <asm>'))
         return
     if message.attachments:
         att = message.attachments[0]
@@ -396,11 +408,11 @@ async def cmd_phantich(message, args):
 
 async def cmd_p2b(message, args):
     if not message.attachments:
-        await message.reply(f'Cách dùng: `{PREFIX}p2b` kèm theo 1 ảnh (đính kèm).')
+        await message.reply(miss_msg('p2b', f'{PREFIX}p2b + ảnh đính kèm'))
         return
     att = message.attachments[0]
     if not att.content_type or not att.content_type.startswith('image/'):
-        await message.reply('❌ Đây không phải file ảnh.')
+        await message.reply(wrong_msg('p2b', 'đây không phải file ảnh', f'{PREFIX}p2b + ảnh đính kèm'))
         return
     try:
         async with message.channel.typing():
@@ -425,8 +437,11 @@ async def cmd_h2b(message, args):
         if att.filename.lower().endswith('.txt'):
             content = (await att.read()).decode('utf-8', errors='replace')
             hexstr = cl.clean_hex(content)
-    if not hexstr or len(hexstr) % 2 != 0:
-        await message.reply(f'Cách dùng: `{PREFIX}h2b <hex>` hoặc đính kèm file .txt chứa hex.')
+    if not hexstr:
+        await message.reply(miss_msg('h2b', f'{PREFIX}h2b <hex>'))
+        return
+    if len(hexstr) % 2 != 0:
+        await message.reply(wrong_msg('h2b', 'hex phải có số ký tự chẵn', f'{PREFIX}h2b <hex>'))
         return
     try:
         async with message.channel.typing():
@@ -444,23 +459,23 @@ async def cmd_h2b(message, args):
 
 async def cmd_pixel(message, args):
     if not message.attachments:
-        await message.reply(f'Cách dùng: `{PREFIX}pixel <XxX>` kèm theo 1 ảnh. VD: `{PREFIX}pixel 96x31`')
+        await message.reply(miss_msg('pixel', f'{PREFIX}pixel <NxY> + ảnh (N = rộng, Y = cao)'))
         return
     att = message.attachments[0]
     if not att.content_type or not att.content_type.startswith('image/'):
-        await message.reply('❌ Đây không phải file ảnh.')
+        await message.reply(wrong_msg('pixel', 'đây không phải file ảnh', f'{PREFIX}pixel <NxY> + ảnh'))
         return
     m = re.match(r'^\s*(\d+)\s*[xX×]\s*(\d+)\s*$', args)
     if not m:
-        await message.reply(f'Cách dùng: `{PREFIX}pixel <XxX>` - VD: `{PREFIX}pixel 96x31`')
+        await message.reply(wrong_msg('pixel', f'format `{args.strip() or "?"}` không phải NxY', f'{PREFIX}pixel <NxY> (VD 96x31)'))
         return
     w = int(m.group(1))
     h = int(m.group(2))
     if w < 1 or h < 1:
-        await message.reply('❌ Kích thước phải ≥ 1.')
+        await message.reply(wrong_msg('pixel', 'kích thước phải ≥ 1', f'{PREFIX}pixel <NxY>'))
         return
     if w > 192 or h > 63:
-        await message.reply('❌ Kích thước tối đa 192x63.')
+        await message.reply(wrong_msg('pixel', f'{w}x{h}: chiều rộng ≤ 192, chiều cao ≤ 63', f'{PREFIX}pixel <NxY>'))
         return
     try:
         async with message.channel.typing():
@@ -480,10 +495,14 @@ async def cmd_pixel(message, args):
 
 
 async def cmd_ganhex(message, args):
-    hexstr = cl.clean_hex(args)
-    if not hexstr or len(hexstr) % 2 != 0:
-        await message.reply(f'Cách dùng: `{PREFIX}ganhex <hex>`')
+    cleaned = cl.clean_hex(args)
+    if not cleaned:
+        await message.reply(miss_msg('ganhex', f'{PREFIX}ganhex <hex>'))
         return
+    if len(cleaned) % 2 != 0:
+        await message.reply(wrong_msg('ganhex', 'hex phải có số ký tự chẵn', f'{PREFIX}ganhex <hex>'))
+        return
+    hexstr = cleaned
     out, byte_1 = cl.gan_hex(hexstr)
     text = out
     if byte_1:
@@ -507,8 +526,11 @@ async def cmd_dichhex(message, args):
         else:
             hexstr = args
     cleaned = cl.clean_hex(hexstr)
-    if not cleaned or len(cleaned) % 2 != 0:
-        await message.reply(f'Cách dùng: `{PREFIX}dichhex <580/880> <hex>`')
+    if not cleaned:
+        await message.reply(miss_msg('dichhex', f'{PREFIX}dichhex <580/880> <hex>'))
+        return
+    if len(cleaned) % 2 != 0:
+        await message.reply(wrong_msg('dichhex', 'hex phải có số ký tự chẵn', f'{PREFIX}dichhex <580/880> <hex>'))
         return
     model_name = '580vnx' if model == '580' else '880btg'
     result = cl.hex_to_tokens(model, hexstr)
@@ -533,11 +555,11 @@ async def do_setsearch(message, args, key, model):
         return
     cid = extract_id(args)
     if not cid:
-        await message.reply(f'Cách dùng: `{PREFIX}set{model} <id>`')
+        await message.reply(miss_msg(f'set{model}', f'{PREFIX}set{model} <id>'))
         return
     chan = message.guild.get_channel(cid)
     if not chan:
-        await message.reply('❌ Không tìm thấy kênh có id đó!')
+        await message.reply(wrong_msg(f'set{model}', 'không tìm thấy kênh có id đó', f'{PREFIX}set{model} <id>'))
         return
     guild_settings(message.guild.id)[key] = cid
     save_config()
@@ -556,15 +578,15 @@ async def cmd_find880(message, args):
 async def do_find(message, args, key, model):
     cid = guild_settings(message.guild.id).get(key)
     if not cid:
-        await message.reply(f'Chưa set kênh! Dùng `{PREFIX}set{model} <id>` trước.')
+        await message.reply(f'⚠️ **Thiếu**: chưa set kênh tìm tin nhắn cho {model}. Dùng `{PREFIX}set{model} <id>` trước.')
         return
     chan = bot.get_channel(cid)
     if not chan:
-        await message.reply('❌ Kênh đã set không tồn tại.')
+        await message.reply(wrong_msg(f'find{model}', 'kênh đã set không tồn tại', f'{PREFIX}set{model} <id> lại'))
         return
     kw = args.strip()
     if not kw:
-        await message.reply(f'Cách dùng: `{PREFIX}find{model} <từ khoá>`')
+        await message.reply(miss_msg(f'find{model}', f'{PREFIX}find{model} <từ khoá>'))
         return
     found = []
     async with message.channel.typing():
@@ -792,7 +814,7 @@ async def cmd_ai_leave(message, args):
 async def cmd_ai_setkey(message, args):
     key = args.strip()
     if not key:
-        await message.reply('Cách dùng: `p!setkey <key>`')
+        await message.reply(miss_msg('setkey', 'p!setkey <key>'))
         return
     guild_settings(message.guild.id)['ai_key'] = key
     save_config()
