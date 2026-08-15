@@ -694,27 +694,33 @@ async def handle_noitu_move(message):
 
 async def ai_chat(key, messages):
     url = AI_BASE.rstrip('/') + '/chat/completions'
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                    url,
-                    json={'model': AI_MODEL, 'messages': messages},
-                    headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
-                    timeout=aiohttp.ClientTimeout(total=40)) as resp:
-                if resp.status != 200:
-                    body = (await resp.text())[:300]
-                    raise RuntimeError(f'HTTP {resp.status}: {body}')
-                data = await resp.json()
-    except asyncio.TimeoutError:
-        raise RuntimeError(f'API {AI_BASE} không phản hồi trong 40s (sai endpoint hoặc mạng).')
-    except aiohttp.ClientError as e:
-        raise RuntimeError(f'Kết nối API thất bại: {e}') from e
-    except Exception as e:
-        raise RuntimeError(f'Lỗi gọi API: {e}') from e
-    try:
-        return data['choices'][0]['message']['content']
-    except Exception:
-        raise RuntimeError(f'Response thiếu nội dung: {str(data)[:300]}')
+    last_err = None
+    for attempt in range(3):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                        url,
+                        json={'model': AI_MODEL, 'messages': messages},
+                        headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+                        timeout=aiohttp.ClientTimeout(total=45)) as resp:
+                    if resp.status in (429, 503):
+                        last_err = f'HTTP {resp.status}: model đang quá tải, thử lại (lần {attempt + 1}/3)...'
+                        await asyncio.sleep(5 * (attempt + 1))
+                        continue
+                    if resp.status != 200:
+                        raise RuntimeError(f'HTTP {resp.status}: {(await resp.text())[:250]}')
+                    data = await resp.json()
+            try:
+                return data['choices'][0]['message']['content']
+            except Exception:
+                raise RuntimeError(f'Response thiếu nội dung: {str(data)[:200]}')
+        except asyncio.TimeoutError:
+            last_err = 'API phản hồi quá chậm (>45s), thử lại...'
+            await asyncio.sleep(5 * (attempt + 1))
+        except aiohttp.ClientError as e:
+            last_err = f'Kết nối API thất bại: {e}'
+            await asyncio.sleep(5 * (attempt + 1))
+    raise RuntimeError(last_err or 'Không thể gọi API AI.')
 
 
 async def cmd_ai_join(message, args):
