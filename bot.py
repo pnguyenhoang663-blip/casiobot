@@ -95,11 +95,11 @@ async def read_image(attachment):
     return Image.open(io.BytesIO(data))
 
 
-# ---------------- HELP (2 trang + chọn trang) ----------------
+# ---------------- HELP (3 trang + chọn trang) ----------------
 
 def build_page_chung():
     embed = discord.Embed(title='📖 Lệnh chung', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/2 - Chọn "Casio tools" bên dưới để xem tiếp')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/3 - Chọn trang khác bên dưới để xem tiếp')
     embed.add_field(name=f'`{PREFIX}help`', value='Mở ra bảng hướng dẫn', inline=False)
     embed.add_field(name=f'`{PREFIX}ping`', value='Ping xem bot còn không', inline=False)
     embed.add_field(name=f'`{PREFIX}setchannel <id>`', value='Set kênh bot chỉ được hoạt động tại kênh đó (Chỉ có quyền admin)', inline=False)
@@ -110,7 +110,7 @@ def build_page_chung():
 
 def build_page_casio():
     embed = discord.Embed(title='🧮 Casio tools', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/2')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/3')
     embed.add_field(name=f'`{PREFIX}comp580 <asm>`', value='Compiler asm theo model 580vnx', inline=False)
     embed.add_field(name=f'`{PREFIX}comp880 <asm>`', value='Compiler asm theo model 880btg', inline=False)
     embed.add_field(name=f'`{PREFIX}decomp <model> <hex>`', value='Decomp theo model (580 hoặc 880)', inline=False)
@@ -127,11 +127,20 @@ def build_page_casio():
     return embed
 
 
+def build_page_games():
+    embed = discord.Embed(title='🎮 Trò chơi', color=0xff44aa)
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/3 - Vui là chính 😎')
+    embed.add_field(name='🕹️ Đang phát triển...', value='Các lệnh trò chơi đang được chuẩn bị và sẽ sớm xuất hiện tại đây!', inline=False)
+    embed.add_field(name='💡 Gợi ý', value=f'Gõ `{PREFIX}comp580` để tự viết game chạy trên máy tính Casio của bạn 😉', inline=False)
+    return embed
+
+
 class HelpSelect(discord.ui.Select):
     def __init__(self, pages):
         options = [
             discord.SelectOption(label='Lệnh chung', value='0', emoji='📖'),
             discord.SelectOption(label='Casio tools', value='1', emoji='🧮'),
+            discord.SelectOption(label='Trò chơi', value='2', emoji='🎮'),
         ]
         super().__init__(placeholder='Chọn trang hướng dẫn', options=options, row=0)
         self.pages = pages
@@ -184,7 +193,7 @@ class VdDocsView(discord.ui.View):
 # ---------------- LỆNH CHUNG ----------------
 
 async def cmd_help(message, args):
-    pages = [build_page_chung(), build_page_casio()]
+    pages = [build_page_chung(), build_page_casio(), build_page_games()]
     view = HelpView(pages)
     msg = await message.reply(embed=pages[0], view=view)
     view.message = msg
