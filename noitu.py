@@ -9,11 +9,13 @@ DICT_PATH = os.path.join(BASE, 'tudien.txt')
 PHRASES = set()
 WORDS = set()
 START_BY_WORD = {}
+DISPLAY = {}
+WORD_DISPLAY = {}
 RAW = []
 
 
 def normalize(s):
-    s = s.lower().replace('đ', 'd')
+    s = str(s).lower().replace('đ', 'd')
     s = unicodedata.normalize('NFKD', s)
     s = ''.join(c for c in s if not unicodedata.combining(c))
     s = re.sub(r'[^a-z]', '', s)
@@ -21,10 +23,12 @@ def normalize(s):
 
 
 def load(path=DICT_PATH):
-    global PHRASES, WORDS, START_BY_WORD, RAW
+    global PHRASES, WORDS, START_BY_WORD, DISPLAY, WORD_DISPLAY, RAW
     PHRASES = set()
     WORDS = set()
     START_BY_WORD = {}
+    DISPLAY = {}
+    WORD_DISPLAY = {}
     RAW = []
     if os.path.exists(path):
         with open(path, 'r', encoding='utf-8') as f:
@@ -32,19 +36,25 @@ def load(path=DICT_PATH):
                 raw_line = line.strip()
                 if not raw_line:
                     continue
-                base_words = []
-                for t in raw_line.split():
-                    b = normalize(t)
-                    if len(b) >= 2:
-                        base_words.append(b)
+                raw_words = raw_line.split()
+                base_words = [normalize(t) for t in raw_words]
+                base_words = [b for b in base_words if len(b) >= 2]
                 if not base_words:
                     continue
-                phrase = ' '.join(base_words)
-                PHRASES.add(phrase)
-                START_BY_WORD.setdefault(base_words[0], set()).add(phrase)
+                phrase_base = ' '.join(base_words)
+                PHRASES.add(phrase_base)
+                DISPLAY.setdefault(phrase_base, raw_line)
+                START_BY_WORD.setdefault(base_words[0], set()).add(phrase_base)
                 RAW.append(raw_line)
-                for b in base_words:
-                    WORDS.add(b)
+                for orig, b in zip(raw_words, [normalize(t) for t in raw_words]):
+                    if len(b) >= 2:
+                        WORDS.add(b)
+                        WORD_DISPLAY.setdefault(b, orig)
+
+
+def display_word(d):
+    base = normalize(d)
+    return WORD_DISPLAY.get(base, d)
 
 
 def can_continue(word, used):
@@ -63,5 +73,5 @@ def pick_start():
     random.shuffle(cand)
     for p in cand:
         if can_continue(p.split()[-1], set()):
-            return p
-    return cand[0] if cand else 'mèo mướp'
+            return DISPLAY.get(p, p)
+    return DISPLAY.get(cand[0], cand[0]) if cand else 'con mèo'

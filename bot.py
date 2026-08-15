@@ -520,10 +520,13 @@ async def cmd_noitu(message, args):
     if a in ('2', 'nhieu', 'nhiều'):
         mode = 2
     start = noitu.pick_start()
+    start_base_words = [b for b in (noitu.normalize(t) for t in start.split()) if len(b) >= 2]
+    need_base = start_base_words[-1]
     last_start = start.split()[-1]
     GAMES[str(message.channel.id)] = {
-        'need_word': last_start,
-        'used': {start},
+        'need_word': need_base,
+        'need_word_d': last_start,
+        'used': {' '.join(start_base_words)},
         'last_player': None,
         'paused': False,
         'mode': mode,
@@ -575,7 +578,7 @@ async def cmd_tiep(message, args):
         await message.reply('⏩ Trò chơi vẫn đang chạy mà!')
         return
     g['paused'] = False
-    await message.reply(f'▶️ Tiếp tục! Nối tiếp bằng từ **{g["need_word"]}**.')
+    await message.reply(f'▶️ Tiếp tục! Nối tiếp bằng từ **{g["need_word_d"]}**.')
 
 
 async def cmd_stop(message, args):
@@ -621,13 +624,14 @@ async def handle_noitu_move(message):
         pass
     g['used'].add(phrase)
     g['need_word'] = base[-1]
+    g['need_word_d'] = tokens[-1]
     g['last_player'] = message.author.id
     g['count'] += 1
     if not noitu.can_continue(g['need_word'], g['used']):
-        await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được sau từ **{g["need_word"]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
+        await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được sau từ **{g["need_word_d"]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
         GAMES.pop(ch, None)
         return
-    await message.reply(f'➡️ **{phrase}** → nối tiếp bằng từ **{g["need_word"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
+    await message.reply(f'➡️ **{content}** → nối tiếp bằng từ **{g["need_word_d"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
 
 
 COMMANDS = {
