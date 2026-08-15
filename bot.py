@@ -36,7 +36,7 @@ except Exception:
     web = None
 
 AI_MODEL = os.getenv('AI_MODEL', 'oc/deepseek-v4-flash-free')
-AI_BASE = os.getenv('AI_BASE_URL', 'https://omniroute.ai/v1')
+AI_BASE = os.getenv('AI_BASE_URL', 'http://localhost:20128/v1')
 AI_CHANNELS = set()
 AI_HISTORY = {}
 AI_NOKEY_ONCE = set()
