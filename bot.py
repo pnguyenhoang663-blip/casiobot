@@ -38,6 +38,7 @@ except Exception:
 
 AI_MODELS = [m.strip() for m in os.getenv('AI_MODELS', 'gemini-1.5-flash,gemini-2.5-flash-lite,gemini-2.5-flash,gemini-3-flash').split(',') if m.strip()] or ['gemini-1.5-flash']
 AI_MODEL = AI_MODELS[0]
+AI_KEY = os.getenv('AI_KEY', '')
 AI_BASE = os.getenv('AI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta/openai')
 AI_CHANNELS = set()
 AI_HISTORY = {}
@@ -772,7 +773,7 @@ async def cmd_ai_delkey(message, args):
 
 
 async def cmd_ai_showkey(message, args):
-    key = guild_settings(message.guild.id).get('ai_key')
+    key = guild_settings(message.guild.id).get('ai_key') or AI_KEY
     if key:
         masked = key[:8] + '*' * min(12, max(0, len(key) - 8))
     else:
@@ -793,7 +794,7 @@ async def handle_ai_message(message):
                        and message.reference.resolved.author == bot.user)
     if not (joined or mentioned or replied_bot):
         return
-    key = guild_settings(message.guild.id).get('ai_key')
+    key = guild_settings(message.guild.id).get('ai_key') or AI_KEY
     if not key:
         if ch not in AI_NOKEY_ONCE:
             AI_NOKEY_ONCE.add(ch)
