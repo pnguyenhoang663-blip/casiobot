@@ -529,9 +529,10 @@ async def cmd_noitu(message, args):
         'count': 1,
     }
     mode_name = 'Nối 1 lần' if mode == 1 else 'Nối nhiều'
+    last_start = start.split()[-1]
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
     embed.add_field(name='🔤 Từ đầu', value=f'**{start}**', inline=False)
-    embed.add_field(name='➡️ Nối tiếp chữ', value=f'**{start[-1]}**', inline=False)
+    embed.add_field(name='➡️ Nối tiếp từ', value=f'**{last_start}** → chữ **{start[-1]}**', inline=False)
     embed.add_field(name='⚙️ Chế độ', value=mode_name, inline=False)
     embed.set_footer(text=f'{PREFIX}noitiep 1/2 đổi chế độ | {PREFIX}dung | {PREFIX}tiep | {PREFIX}stop')
     await message.reply(embed=embed)
@@ -620,13 +621,14 @@ async def handle_noitu_move(message):
         pass
     g['used'].add(phrase)
     g['letter'] = phrase[-1]
+    last_word = phrase.split()[-1]
     g['last_player'] = message.author.id
     g['count'] += 1
     if not noitu.can_continue(g['letter'], g['used']):
         await message.reply(f'🏆 **{message.author.display_name}** thắng! Không còn từ nào nối được chữ **{g["letter"]}**. Tổng cộng **{g["count"]}** từ đã nối. 🎉')
         GAMES.pop(ch, None)
         return
-    await message.reply(f'➡️ Chữ tiếp theo: **{g["letter"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
+    await message.reply(f'➡️ **{last_word}** → nối tiếp chữ **{g["letter"]}** ({len(g["used"])} từ đã dùng) | {g["count"]} từ đã nối')
 
 
 COMMANDS = {
