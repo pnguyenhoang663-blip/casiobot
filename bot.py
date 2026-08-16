@@ -137,8 +137,9 @@ def build_page_chung():
     embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/5 - Chọn trang khác bên dưới để xem tiếp')
     embed.add_field(name=f'`{PREFIX}help`', value='Mở ra bảng hướng dẫn', inline=False)
     embed.add_field(name=f'`{PREFIX}ping`', value='Ping xem bot còn không', inline=False)
-    embed.add_field(name=f'`{PREFIX}setchannel <id>`', value='Set kênh bot chỉ được hoạt động tại kênh đó (Chỉ có quyền admin)', inline=False)
-    embed.add_field(name=f'`{PREFIX}delchannel`', value='Xoá id kênh đó và bot có thể hoạt động ở mọi kênh (Chỉ có quyền admin)', inline=False)
+    embed.add_field(name=f'`{PREFIX}setchannel <id>`', value='Thêm kênh được phép hoạt động vào danh sách (Chỉ admin)', inline=False)
+    embed.add_field(name=f'`{PREFIX}delchannel <số|id>`', value='Xoá kênh khỏi danh sách theo số thứ tự hoặc id (Chỉ admin)', inline=False)
+    embed.add_field(name=f'`{PREFIX}listchannel`', value='Xem danh sách kênh đang được phép hoạt động', inline=False)
     embed.add_field(name=f'`{PREFIX}credit`', value='Giới thiệu', inline=False)
     return embed
 
