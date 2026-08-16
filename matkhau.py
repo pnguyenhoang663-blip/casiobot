@@ -192,16 +192,14 @@ def r112(pw, data=None):
     return len(set(c for c in pw if c in FRUITS)) == 3
 
 
-@rule(114, 'Số ký tự đặc biệt phải bằng số chữ số')
+@rule(114, 'Phải chứa ít nhất 5 chữ số')
 def r114(pw, data=None):
-    return sum(c in SPECIAL for c in pw) == sum(c.isdigit() for c in pw)
+    return sum(c.isdigit() for c in pw) >= 5
 
 
-@rule(115, 'Phải chứa một định dạng markdown')
+@rule(115, 'Phải chứa ít nhất 2 chữ cái viết hoa liên tiếp nhau')
 def r115(pw, data=None):
-    return bool(re.search(r'\*\*[^*]+\*\*', pw)
-                or re.search(r'(?<!\*)\*[^*]+\*(?!\*)', pw)
-                or re.search(r'`[^`]+`', pw))
+    return bool(re.search(r'[A-Z]{2}', pw))
 
 
 @rule(116, 'Phải chứa tên một ngôn ngữ lập trình')
