@@ -265,9 +265,9 @@ def r201(pw, data=None):
     return False
 
 
-@rule(202, 'Phải chứa đúng số ký tự hiện tại của mật khẩu')
+@rule(202, 'Phải chứa ít nhất 3 chữ số khác nhau')
 def r202(pw, data=None):
-    return str(len(pw)) in pw
+    return len({c for c in pw if c.isdigit()}) >= 3
 
 
 @rule(203, 'Ký tự thứ 15 của mật khẩu phải là chữ Z')
@@ -280,10 +280,11 @@ def r204(pw, data=None):
     return sum(ord(c) for c in pw if c.isupper()) % 7 == 0
 
 
-@rule(205, 'Không được có 2 chữ cái liền nhau trong bảng chữ cái')
+@rule(205, 'Không được có 2 chữ cái kề nhau liên tiếp trong bảng chữ cái')
 def r205(pw, data=None):
-    letters = [c.lower() for c in pw if c.isalpha()]
-    return all(abs(ord(b) - ord(a)) != 1 for a, b in zip(letters, letters[1:]))
+    return all(not (a.isalpha() and b.isalpha())
+               or abs(ord(a.lower()) - ord(b.lower())) != 1
+               for a, b in zip(pw, pw[1:]))
 
 
 @rule(206, 'Số emoji phải bằng số ký tự La Mã')
@@ -303,15 +304,9 @@ def r208(pw, data=None):
     return 'UEFTU1dPUkQ=' in pw
 
 
-@rule(209, 'Tổng số âm tiết các từ tiếng Anh phải đúng bằng 8')
+@rule(209, 'Phải chứa ít nhất 4 từ tiếng Anh khác nhau')
 def r209(pw, data=None):
-    def syllables(w):
-        groups = [g for g in re.findall(r'[aeiouy]+', w.lower()) if g]
-        n = len(groups)
-        if len(w) > 1 and w.lower().endswith('e') and n > 1:
-            n -= 1
-        return max(n, 1)
-    return sum(syllables(w) for w in re.findall(r'[A-Za-z]+', pw)) == 8
+    return len(set(re.findall(r'[A-Za-z]+', pw.lower()))) >= 4
 
 
 @rule(210, 'Phải chứa tên một nhân vật lịch sử')
@@ -336,9 +331,9 @@ def r213(pw, data=None):
     return any(p in low for p in FOREIGN_PHRASES)
 
 
-@rule(214, 'Tổng các chữ số khi cộng lại phải là số đối xứng')
+@rule(214, 'Phải chứa một số đối xứng (palindrome số)')
 def r214(pw, data=None):
-    return _pal_digits(sum(int(c) for c in pw if c.isdigit()))
+    return any(len(tok) >= 2 and tok == tok[::-1] for tok in re.findall(r'\d+', pw))
 
 
 @rule(215, 'Phải chứa tên một cấu trúc dữ liệu')
