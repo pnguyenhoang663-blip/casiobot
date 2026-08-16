@@ -654,8 +654,12 @@ async def cmd_trl(message, args):
         await message.reply(f'Chỉ <@{g["starter"]}> được chơi thôi! (người bắt đầu game)')
         return
     pw = args
+    if not pw and message.attachments:
+        att = message.attachments[0]
+        if att.filename.lower().endswith('.txt'):
+            pw = (await att.read()).decode('utf-8', errors='replace').strip()
     if not pw:
-        await message.reply(miss_msg('trl', 'p!trl <chuỗi mật khẩu>'))
+        await message.reply(miss_msg('trl', 'p!trl <chuỗi mật khẩu> hoặc đính kèm file .txt'))
         return
     res = matkhau.check(pw, g['rules'], g['passed'], g.get('data', {}))
     if g['level'] == 'hardcore' and res['lost']:

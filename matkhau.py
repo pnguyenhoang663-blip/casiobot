@@ -246,7 +246,7 @@ def r113(pw, data=None):
     return len(set(c for c in pw if c in SPECIAL)) >= 4
 
 
-NORMAL_OWN = list(range(101, 121))
+NORMAL_OWN = [105, 106, 110, 112, 113, 114, 115, 116, 118, 119, 120]
 
 
 ANIMALS = '🐣🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🦆🦅🦉🦇🐺🐗🐴🦄🐝🦋🐌🐞🐢🐍🦎🦑🦀🐙🦞🦐🐠🐟🐬🐳🐋🦈🦭'
@@ -431,7 +431,7 @@ def r230(pw, data=None):
     return any(h in low for h in HIST_FIGURES)
 
 
-HARD_OWN = list(range(201, 231))
+HARD_OWN = [202, 203, 204, 205, 206, 209, 210, 211, 212, 213, 214, 215, 222, 223, 224, 225, 226, 227, 228, 229, 230]
 
 LEVELS = {
     'easy': {'label': 'Dễ', 'rule_ids': EASY_IDS},
