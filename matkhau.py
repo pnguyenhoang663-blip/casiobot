@@ -70,12 +70,9 @@ def r8(pw):
     return False
 
 
-@rule(9, 'Phải chứa một từ palindrome')
+@rule(9, 'Phải chứa ít nhất 3 nguyên âm')
 def r9(pw):
-    for tok in re.findall(r'[A-Za-z]{3,}', pw):
-        if tok.lower() == tok.lower()[::-1]:
-            return True
-    return False
+    return sum(c in 'aeiouAEIOU' for c in pw) >= 3
 
 
 @rule(10, 'Phải chứa ít nhất 2 emoji bất kỳ')
