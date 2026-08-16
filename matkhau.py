@@ -231,12 +231,212 @@ def r120(pw, data=None):
     return any(len(tok) == 5 for tok in re.findall(r'[A-Za-z]+', pw))
 
 
-NORMAL_OWN = [101, 102, 103, 104, 105, 107, 108, 109, 111, 112, 114, 115, 116, 117, 118, 119, 120]
+@rule(106, 'Phải chứa ít nhất 2 từ tiếng Anh khác nhau')
+def r106(pw, data=None):
+    return len(set(re.findall(r'[A-Za-z]+', pw))) >= 2
+
+
+@rule(110, 'Phải chứa đúng 2 khoảng trắng')
+def r110(pw, data=None):
+    return pw.count(' ') == 2
+
+
+@rule(113, 'Phải chứa ít nhất 4 ký tự đặc biệt khác nhau')
+def r113(pw, data=None):
+    return len(set(c for c in pw if c in SPECIAL)) >= 4
+
+
+NORMAL_OWN = list(range(101, 121))
+
+
+ANIMALS = '🐣🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🦆🦅🦉🦇🐺🐗🐴🦄🐝🦋🐌🐞🐢🐍🦎🦑🦀🐙🦞🦐🐠🐟🐬🐳🐋🦈🦭'
+GREEK_CYR = set('λΩΔπθΣΦΨξδβγζηκμνρστφχψωЖДШЩЧЦФЫЗЪЭЁЬЪБВГДЕЖЗИЙКЛ')
+VOWELS = 'aeiouAEIOU'
+VICTORY_CAESAR = 'YLFWRUB'
+MORSE_HELP = '.... . .-.. .--.'
+CHESS_RE = re.compile(r'^(?:K|Q|R|B|N)?(?:[a-h])?x?[a-h][1-8][+#]?$')
+
+
+# ================= KHÓ (201-230) =================
+
+@rule(201, 'Phải chứa một nước đi cờ vua theo chuẩn notation')
+def r201(pw, data=None):
+    for tok in re.findall(r'[^ ]+', pw):
+        if CHESS_RE.match(tok):
+            return True
+    return False
+
+
+@rule(202, 'Phải chứa đúng số ký tự hiện tại của mật khẩu')
+def r202(pw, data=None):
+    return str(len(pw)) in pw
+
+
+@rule(203, 'Ký tự thứ 15 của mật khẩu phải là chữ Z')
+def r203(pw, data=None):
+    return len(pw) >= 15 and pw[14] == 'Z'
+
+
+@rule(204, 'Tổng mã ASCII của các chữ hoa phải chia hết cho 7')
+def r204(pw, data=None):
+    return sum(ord(c) for c in pw if c.isupper()) % 7 == 0
+
+
+@rule(205, 'Không được có 2 chữ cái liền nhau trong bảng chữ cái')
+def r205(pw, data=None):
+    letters = [c.lower() for c in pw if c.isalpha()]
+    return all(abs(ord(b) - ord(a)) != 1 for a, b in zip(letters, letters[1:]))
+
+
+@rule(206, 'Số emoji phải bằng số ký tự La Mã')
+def r206(pw, data=None):
+    emoji_count = len(re.findall(r'[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2190-\u21FF\uFE0F\u00A9\u00AE]', pw))
+    roman_count = sum(c in 'IVXLCDM' for c in pw.upper())
+    return emoji_count == roman_count
+
+
+@rule(207, 'Phải chứa một ký tự Hy Lạp hoặc Nga')
+def r207(pw, data=None):
+    return any(c in GREEK_CYR for c in pw)
+
+
+@rule(208, 'Phải chứa mã Base64 của từ PASSWORD')
+def r208(pw, data=None):
+    return 'UEFTU1dPUkQ=' in pw
+
+
+@rule(209, 'Tổng số âm tiết các từ tiếng Anh phải đúng bằng 8')
+def r209(pw, data=None):
+    def syllables(w):
+        groups = [g for g in re.findall(r'[aeiouy]+', w.lower()) if g]
+        n = len(groups)
+        if len(w) > 1 and w.lower().endswith('e') and n > 1:
+            n -= 1
+        return max(n, 1)
+    return sum(syllables(w) for w in re.findall(r'[A-Za-z]+', pw)) == 8
+
+
+@rule(210, 'Phải chứa tên một nhân vật lịch sử')
+def r210(pw, data=None):
+    low = pw.lower()
+    return any(h in low for h in HIST_FIGURES)
+
+
+@rule(211, 'Phải chứa một dòng lệnh Assembly cơ bản')
+def r211(pw, data=None):
+    return bool(re.search(r'\b(MOV|ADD|SUB|NOP|PUSH|POP|JMP|CALL|CMP|RT)\b', pw, re.I))
+
+
+@rule(212, 'Phải chứa công thức định lý Pythagoras')
+def r212(pw, data=None):
+    return 'a^2+b^2=c^2' in pw or 'a^2 + b^2 = c^2' in pw or 'a2+b2=c2' in pw
+
+
+@rule(213, 'Phải chứa một cụm từ tiếng Pháp hoặc tiếng Đức')
+def r213(pw, data=None):
+    low = pw.lower()
+    return any(p in low for p in FOREIGN_PHRASES)
+
+
+@rule(214, 'Tổng các chữ số khi cộng lại phải là số đối xứng')
+def r214(pw, data=None):
+    return _pal_digits(sum(int(c) for c in pw if c.isdigit()))
+
+
+@rule(215, 'Phải chứa tên một cấu trúc dữ liệu')
+def r215(pw, data=None):
+    low = pw.lower()
+    return any(d in low for d in DATA_STR)
+
+
+@rule(216, 'Phải chứa một mã ISBN 13 chữ số')
+def r216(pw, data=None):
+    return bool(re.search(r'\d{13}', pw))
+
+
+@rule(217, 'Phải chứa mã Caesar (+3) của chữ VICTORY')
+def r217(pw, data=None):
+    return VICTORY_CAESAR in pw.upper()
+
+
+@rule(218, 'Phải chứa mã Morse của chữ HELP')
+def r218(pw, data=None):
+    return MORSE_HELP in pw
+
+
+@rule(219, 'Phải chứa một số nguyên tố lớn hơn 1000')
+def r219(pw, data=None):
+    for tok in re.findall(r'\d+', pw):
+        n = int(tok)
+        if n > 1000 and _is_prime(n):
+            return True
+    return False
+
+
+@rule(220, 'Phải chứa tên khoa học (Latin) của một loài động vật')
+def r220(pw, data=None):
+    low = pw.lower()
+    return any(l in low for l in LATIN_NAMES)
+
+
+@rule(221, 'Phải chứa tên của 3 thuật toán sắp xếp khác nhau')
+def r221(pw, data=None):
+    low = pw.lower()
+    return sum(1 for s in SORT_ALGOS if s in low) >= 3
+
+
+@rule(222, 'Phải chứa ít nhất 1 emoji động vật')
+def r222(pw, data=None):
+    return any(c in ANIMALS for c in pw)
+
+
+@rule(223, 'Phải chứa ít nhất 5 chữ số')
+def r223(pw, data=None):
+    return sum(c.isdigit() for c in pw) >= 5
+
+
+@rule(224, 'Phải chứa một từ palindrome')
+def r224(pw, data=None):
+    return any(tok.lower() == tok.lower()[::-1] for tok in re.findall(r'[A-Za-z]{3,}', pw))
+
+
+@rule(225, 'Không được chứa chữ số 0')
+def r225(pw, data=None):
+    return '0' not in pw
+
+
+@rule(226, 'Phải chứa ít nhất 3 nguyên âm liên tiếp nhau')
+def r226(pw, data=None):
+    return bool(re.search(r'[aeiouAEIOU]{3}', pw))
+
+
+@rule(227, 'Phải chứa một ký tự lặp lại ít nhất 2 lần')
+def r227(pw, data=None):
+    return len(pw) - len(set(pw)) >= 1
+
+
+@rule(228, 'Phải chứa một số chia hết cho 21')
+def r228(pw, data=None):
+    return any(int(tok) % 21 == 0 for tok in re.findall(r'\d+', pw))
+
+
+@rule(229, 'Phải chứa một ký tự đặc biệt lặp lại ít nhất 3 lần')
+def r229(pw, data=None):
+    return any(sum(c == s for c in pw) >= 3 for s in set(c for c in pw if c in SPECIAL))
+
+
+@rule(230, 'Phải chứa tên một vị vua hoặc nhân vật nổi tiếng trong lịch sử')
+def r230(pw, data=None):
+    low = pw.lower()
+    return any(h in low for h in HIST_FIGURES)
+
+
+HARD_OWN = list(range(201, 231))
 
 LEVELS = {
     'easy': {'label': 'Dễ', 'rule_ids': EASY_IDS},
     'normal': {'label': 'Bình thường', 'rule_ids': EASY_NO_SPACE + NORMAL_OWN},
-    'hard': {'label': 'Khó', 'rule_ids': []},
+    'hard': {'label': 'Khó', 'rule_ids': EASY_NO_SPACE + HARD_OWN},
     'hardcore': {'label': 'Siêu khó', 'rule_ids': []},
 }
 
