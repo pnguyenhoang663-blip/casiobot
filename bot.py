@@ -658,7 +658,7 @@ async def cmd_trl(message, args):
         await message.reply(miss_msg('trl', 'p!trl <chuỗi mật khẩu>'))
         return
     res = matkhau.check(pw, g['rules'], g['passed'])
-    if res['lost']:
+    if g['level'] == 'hardcore' and res['lost']:
         MK_GAMES.pop(ch, None)
         await message.reply('💥 Bạn đã làm hỏng một điều kiện đã hoàn thành trước đó!\n**Bạn đã thua**, p!pass <độ khó> để chơi lại.')
         return
