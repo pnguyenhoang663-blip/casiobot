@@ -45,6 +45,13 @@ AI_CHANNELS = set()
 AI_HISTORY = {}
 AI_NOKEY_ONCE = set()
 AI_DOC = ''
+AI_HISTORY_LEN = 8
+PERSONAS = {
+    1: 'TÍNH CÁCH NGOAN: lịch sự, đúng mực, thân thiện, không chửi thề, không xúc phạm, trả lời mọi câu hỏi (biết hết mọi thứ).',
+    2: 'TÍNH CÁCH LÁO: hơi láo, hay chọc ghẹo, tếu táo, nhưng không xúc phạm nặng và không chửi tục (biết hết mọi thứ).',
+    3: 'TÍNH CÁCH ĐCM: rất láo, hay chửi tục, có thể xúc phạm nhẹ — người gõ đã tự chấp nhận (biết hết mọi thứ).',
+    4: 'TÍNH CÁCH >.<: chỉ nói về chuyện tình của Phong và người yêu (ny), có thể nói những câu đen tối; không bàn chuyện khác.',
+}
 
 
 def load_ai_doc():
@@ -69,7 +76,7 @@ def save_config():
 def guild_settings(guild_id):
     gid = str(guild_id)
     if gid not in CONFIG['guilds']:
-        CONFIG['guilds'][gid] = {'channel': [], 'search580': None, 'search880': None, 'ai_key': None}
+        CONFIG['guilds'][gid] = {'channel': [], 'search580': None, 'search880': None, 'ai_key': None, 'ai_persona': 1}
     gs = CONFIG['guilds'][gid]
     if not isinstance(gs.get('channel'), list):
         gs['channel'] = [gs['channel']] if gs.get('channel') else []
@@ -185,6 +192,7 @@ def build_page_ai():
     embed.add_field(name=f'`{PREFIX}delkey`', value='Xoá key hiện tại', inline=False)
     embed.add_field(name=f'`{PREFIX}showkey`', value='Xem key hiện tại', inline=False)
     embed.add_field(name=f'`{PREFIX}models`', value='Xem danh sách model Gemini khả dụng với key', inline=False)
+    embed.add_field(name=f'`{PREFIX}doitinhcach <1/2/3/4>`', value='Đổi tính cách AI (chung cả server): 1 Ngoan · 2 Láo · 3 Đcm · 4 >.<  (chuyện tình Phong & ny)', inline=False)
     embed.add_field(name='🧠 Model', value=f'`{AI_MODEL}` — Google Gemini (free). Lấy key tại aistudio.google.com/apikey, set bằng `{PREFIX}setkey`', inline=False)
     return embed
 
@@ -975,6 +983,26 @@ async def cmd_ai_models(message, args):
     await message.reply('🧠 Model khả dụng:\n' + '\n'.join(ids[:30]) + ('\n...' if len(ids) > 30 else ''))
 
 
+async def cmd_doitinhcach(message, args):
+    a = args.strip()
+    names = {1: 'Ngoan', 2: 'Láo', 3: 'Đcm', 4: '>.<'}
+    if not a:
+        await message.reply('Các tính cách AI (áp dụng chung cho cả server):\n'
+                            '1. **Ngoan** — lịch sự, đúng mực, không chửi (mặc định)\n'
+                            '2. **Láo** — hơi láo, chọc ghẹo, không xúc phạm nặng\n'
+                            '3. **Đcm** — rất láo, chửi tục, có thể xúc phạm (người dùng tự chịu trách nhiệm)\n'
+                            '4. **>.<** — chỉ nói chuyện tình Phong & ny, có thể đen tối\n'
+                            f'Dùng `{PREFIX}doitinhcach <1/2/3/4>` để chọn.')
+        return
+    if a not in ('1', '2', '3', '4'):
+        await message.reply(wrong_msg('doitinhcach', f'`{a}` không hợp lệ', 'p!doitinhcach <1/2/3/4>'))
+        return
+    n = int(a)
+    guild_settings(message.guild.id)['ai_persona'] = n
+    save_config()
+    await message.reply(f'✅ Đã đổi tính cách AI thành **{names[n]}** — áp dụng cho cả server.')
+
+
 async def handle_ai_message(message):
     if message.author.bot or not message.guild:
         return
@@ -997,11 +1025,14 @@ async def handle_ai_message(message):
     user_text = message.content
     if mentioned:
         user_text = re.sub(r'<@!?(\d+)>', '', user_text).strip()
+    author_name = message.author.display_name or message.author.name
     hist = AI_HISTORY.setdefault(ch, [])
-    hist = (hist + [{'role': 'user', 'content': user_text}])[-20:]
+    hist = (hist + [{'role': 'user', 'content': f'[{author_name}]: {user_text}'}])[-AI_HISTORY_LEN:]
+    persona = guild_settings(message.guild.id).get('ai_persona', 1)
     sys_base = ('Bạn là Casiobot - bot Discord tiếng Việt. Trả lời ngắn gọn, tự nhiên bằng tiếng Việt. '
-                'THÁI ĐỘ: hơi láo, hay chọc ghẹo, tếu táo, có thể trêu người hỏi một chút nhưng vẫn vui vẻ, thân thiện và không xúc phạm. '
-                'TRẢ LỜI ĐÚNG KIỂU CHAT DISCORD: không dùng LaTeX ($..$, $$..$$, \\frac...), không dùng HTML/markdown math, '
+                + PERSONAS.get(persona, PERSONAS[1]) + ' '
+                'MỖI TIN NHẮN CỦA NGƯỜI DÙNG CÓ DẠNG [Tên]: nội dung — nhiều người có thể nhắn chung, hãy PHÂN BIỆT ai nói gì và trả lời đúng người. '
+                'TRẢ LỜI ĐÚNG KIỂU CHAT DISCORD: không dùng LaTeX ($..$, $$..$$), không dùng HTML/markdown math, '
                 'không đóng khung công thức kiểu Google, dùng kí tự thường (vd H2O chứ không phải $H_2O$), '
                 'hạn chế tối đa emoji (chỉ 0-1 khi thật cần), không quá dài dòng.')
     msgs = [{'role': 'system', 'content': sys_base}] + hist
@@ -1012,7 +1043,7 @@ async def handle_ai_message(message):
         await message.reply(f'❌ Lỗi AI: `{e}`')
         AI_HISTORY.pop(ch, None)
         return
-    AI_HISTORY[ch] = (hist + [{'role': 'assistant', 'content': reply}])[-20:]
+    AI_HISTORY[ch] = (hist + [{'role': 'assistant', 'content': reply}])[-AI_HISTORY_LEN:]
     chunks = vd_docs.chunk_text(reply)
     await message.reply(chunks[0])
     for c in chunks[1:]:
@@ -1051,6 +1082,7 @@ COMMANDS = {
     'delkey': cmd_ai_delkey,
     'showkey': cmd_ai_showkey,
     'models': cmd_ai_models,
+    'doitinhcach': cmd_doitinhcach,
     'pass': cmd_pass,
     'trl': cmd_trl,
     'stoppass': cmd_stoppass,
