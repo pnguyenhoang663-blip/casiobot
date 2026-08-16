@@ -426,11 +426,211 @@ def r230(pw, data=None):
 
 HARD_OWN = [202, 203, 204, 205, 206, 209, 210, 211, 212, 213, 214, 215, 222, 223, 224, 225, 226, 227, 228, 229, 230]
 
+
+# ================= SIÊU KHÓ (301-336) =================
+_EMOJI_CLS_VN = r'[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2190-\u21FF\uFE0F\u00A9\u00AE]'
+_VOW_UPPER = 'AEIOU'
+
+
+@rule(301, 'Phải chứa đúng 4 khoảng trắng')
+def r301(pw, data=None):
+    return pw.count(' ') == 4
+
+
+@rule(302, 'Phải chứa ít nhất 6 chữ số')
+def r302(pw, data=None):
+    return sum(c.isdigit() for c in pw) >= 6
+
+
+@rule(303, 'Tổng các chữ số phải chia hết cho 5')
+def r303(pw, data=None):
+    return sum(int(c) for c in pw if c.isdigit()) % 5 == 0
+
+
+@rule(304, 'Phải chứa một số chẵn gồm đúng 3 chữ số')
+def r304(pw, data=None):
+    return any(len(tok) == 3 and int(tok) % 2 == 0 for tok in re.findall(r'\d+', pw))
+
+
+@rule(305, 'Không được chứa ký tự # hay @')
+def r305(pw, data=None):
+    return '#' not in pw and '@' not in pw
+
+
+@rule(306, 'Phải chứa một số có ít nhất 4 chữ số')
+def r306(pw, data=None):
+    return any(len(tok) >= 4 for tok in re.findall(r'\d+', pw))
+
+
+@rule(307, 'Phải có một khoảng trắng đứng ngay sau chữ số')
+def r307(pw, data=None):
+    return bool(re.search(r'\d ', pw))
+
+
+@rule(308, 'Không được có 2 khoảng trắng liền nhau')
+def r308(pw, data=None):
+    return '  ' not in pw
+
+
+@rule(309, 'Phải chứa đúng 5 nguyên âm viết hoa')
+def r309(pw, data=None):
+    return sum(c in _VOW_UPPER for c in pw) == 5
+
+
+@rule(310, 'Phải có 1 chữ hoa đứng ngay sau khoảng trắng')
+def r310(pw, data=None):
+    return bool(re.search(r' [A-Z]', pw))
+
+
+@rule(311, 'Độ dài mật khẩu phải lớn hơn 60')
+def r311(pw, data=None):
+    return len(pw) > 60
+
+
+@rule(312, 'Phải chứa tên một con giáp')
+def r312(pw, data=None):
+    low = pw.lower()
+    return any(z in low for z in ['ty', 'suu', 'dan', 'mao', 'thin', 'ngo', 'mui', 'than', 'dau', 'tuat', 'hoi'])
+
+
+@rule(313, 'Phải chứa một từ gồm đúng 8 chữ cái')
+def r313(pw, data=None):
+    return any(len(w) == 8 for w in re.findall(r'[A-Za-z]+', pw))
+
+
+@rule(314, 'Khoảng trắng không được nằm ở đầu hay cuối')
+def r314(pw, data=None):
+    return len(pw) >= 1 and pw[0] != ' ' and pw[-1] != ' '
+
+
+@rule(315, 'Phải chứa ít nhất 1 emoji trái cây')
+def r315(pw, data=None):
+    return any(c in FRUITS for c in pw)
+
+
+@rule(316, 'Phải có ít nhất 2 cặp chữ số giống nhau đứng liền nhau')
+def r316(pw, data=None):
+    pairs = set()
+    for i in range(len(pw) - 1):
+        if pw[i].isdigit() and pw[i] == pw[i + 1]:
+            pairs.add(pw[i])
+    return len(pairs) >= 2
+
+
+@rule(317, 'Số chữ cái viết thường phải là số chẵn')
+def r317(pw, data=None):
+    return sum(c.islower() for c in pw) % 2 == 0
+
+
+@rule(318, 'Phải chứa ít nhất 5 ký tự đặc biệt khác nhau')
+def r318(pw, data=None):
+    return len(set(c for c in pw if c in SPECIAL)) >= 5
+
+
+@rule(319, 'Phải chứa một số nguyên tố gồm 2 chữ số')
+def r319(pw, data=None):
+    return any(len(tok) == 2 and _is_prime(int(tok)) for tok in re.findall(r'\d+', pw))
+
+
+@rule(320, 'Phải chứa ít nhất 3 emoji khác nhau')
+def r320(pw, data=None):
+    return len(set(re.findall(_EMOJI_CLS_VN, pw))) >= 3
+
+
+@rule(321, 'Phải chứa ít nhất 3 từ tiếng Anh viết hoa')
+def r321(pw, data=None):
+    return sum(1 for w in re.findall(r'[A-Za-z]+', pw) if w.isupper() and len(w) >= 2) >= 3
+
+
+@rule(322, 'Phải chứa một từ tiếng Việt có dấu')
+def r322(pw, data=None):
+    return any(not c.isascii() and c.isalpha() for c in pw)
+
+
+@rule(323, 'Độ dài mật khẩu không được chia hết cho 3')
+def r323(pw, data=None):
+    return len(pw) % 3 != 0
+
+
+@rule(324, 'Phải chứa ít nhất 1 chữ số lẻ')
+def r324(pw, data=None):
+    return any(d in '13579' for d in pw if d.isdigit())
+
+
+@rule(325, 'Ký tự cuối cùng không được là chữ cái')
+def r325(pw, data=None):
+    return len(pw) >= 1 and not pw[-1].isalpha()
+
+
+@rule(326, 'Phải có 3 nguyên âm liên tiếp nhau')
+def r326(pw, data=None):
+    return bool(re.search(r'[aeiouAEIOU]{3}', pw))
+
+
+@rule(327, 'Phải chứa ít nhất 8 phụ âm')
+def r327(pw, data=None):
+    return sum(c.lower() in 'bcdfghjklmnpqrstvwxyz' for c in pw) >= 8
+
+
+@rule(328, 'Tổng các chữ số phải lớn hơn 15')
+def r328(pw, data=None):
+    return sum(int(c) for c in pw if c.isdigit()) > 15
+
+
+@rule(329, 'Phải chứa một số chia hết cho cả 3 và 7')
+def r329(pw, data=None):
+    return any(int(tok) % 21 == 0 for tok in re.findall(r'\d+', pw))
+
+
+@rule(330, 'Phải có 1 chữ hoa đứng cạnh 1 chữ số')
+def r330(pw, data=None):
+    return bool(re.search(r'[A-Z][0-9]|[0-9][A-Z]', pw))
+
+
+@rule(331, 'Phải có 1 dấu câu đứng cạnh emoji')
+def r331(pw, data=None):
+    for m in re.finditer(_EMOJI_CLS_VN, pw):
+        i = m.start()
+        j = m.end()
+        if i > 0 and pw[i - 1] in '.,!?;:':
+            return True
+        if j < len(pw) and pw[j] in '.,!?;:':
+            return True
+    return False
+
+
+@rule(332, 'Phải có đúng 2 chữ e liền nhau (không phải 3)')
+def r332(pw, data=None):
+    return 'ee' in pw and 'eee' not in pw
+
+
+@rule(333, 'Phải chứa một từ không có nguyên âm (chỉ phụ âm)')
+def r333(pw, data=None):
+    return any(not re.search(r'[aeiouAEIOU]', w) and len(w) >= 3 for w in re.findall(r'[A-Za-z]+', pw))
+
+
+@rule(334, 'Phải chứa ít nhất 1 emoji động vật')
+def r334(pw, data=None):
+    return any(c in ANIMALS for c in pw)
+
+
+@rule(335, 'Phải chứa đúng 3 dấu chấm than')
+def r335(pw, data=None):
+    return pw.count('!') == 3
+
+
+@rule(336, 'Phải chứa một từ palindrome dài ít nhất 4 chữ cái')
+def r336(pw, data=None):
+    return any(len(w) >= 4 and w.lower() == w.lower()[::-1] for w in re.findall(r'[A-Za-z]+', pw))
+
+
+HARDCORE_OWN = list(range(301, 337))
+
 LEVELS = {
     'easy': {'label': 'Dễ', 'rule_ids': EASY_IDS},
     'normal': {'label': 'Bình thường', 'rule_ids': EASY_NO_SPACE + NORMAL_OWN},
     'hard': {'label': 'Khó', 'rule_ids': EASY_NO_SPACE + HARD_OWN},
-    'hardcore': {'label': 'Siêu khó', 'rule_ids': []},
+    'hardcore': {'label': 'Siêu khó', 'rule_ids': EASY_NO_SPACE + HARDCORE_OWN},
 }
 
 
