@@ -214,9 +214,9 @@ def r117(pw, data=None):
     return any(c in low for c in SE_ASIA)
 
 
-@rule(118, 'Ký tự ở vị trí trung tâm của mật khẩu phải là chữ số')
+@rule(118, 'Phải có 1 chữ số đứng ngay trước 1 chữ cái viết hoa')
 def r118(pw, data=None):
-    return len(pw) >= 1 and pw[len(pw) // 2].isdigit()
+    return bool(re.search(r'[0-9][A-Z]', pw))
 
 
 @rule(119, 'Phải chứa ký hiệu cả 4 nước bài Tây')
