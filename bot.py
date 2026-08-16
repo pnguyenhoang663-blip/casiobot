@@ -630,16 +630,16 @@ async def cmd_pass(message, args):
     if not matkhau.LEVELS[level]['rule_ids']:
         await message.reply(f'🔒 Chế độ **{matkhau.LEVELS[level]["label"]}** chưa ra mắt. Bản hiện tại chỉ có **Easy (Dễ)**.')
         return
-    rules = matkhau.build_rules(level)
+    rules, data = matkhau.start(level)
     ch = str(message.channel.id)
-    MK_GAMES[ch] = {'level': level, 'rules': rules, 'starter': message.author.id, 'passed': set(), 'count': 0}
+    MK_GAMES[ch] = {'level': level, 'rules': rules, 'data': data, 'starter': message.author.id, 'passed': set(), 'count': 0}
     lines = [
         f'🔐 **Password game — {matkhau.LEVELS[level]["label"]}** ({len(rules)} điều kiện)',
         f'Người chơi: <@{message.author.id}> — gửi mật khẩu bằng `p!trl <chuỗi>`.',
         'Các điều kiện:',
     ]
-    for r in rules:
-        lines.append(f'**{r["id"]}.** {r["name"]}')
+    for idx, r in enumerate(rules, start=1):
+        lines.append(f'**{idx}.** {r["name"]}')
     for chunk in vd_docs.chunk_text('\n'.join(lines)):
         await message.channel.send(chunk)
 
@@ -657,7 +657,7 @@ async def cmd_trl(message, args):
     if not pw:
         await message.reply(miss_msg('trl', 'p!trl <chuỗi mật khẩu>'))
         return
-    res = matkhau.check(pw, g['rules'], g['passed'])
+    res = matkhau.check(pw, g['rules'], g['passed'], g.get('data', {}))
     if g['level'] == 'hardcore' and res['lost']:
         MK_GAMES.pop(ch, None)
         await message.reply('💥 Bạn đã làm hỏng một điều kiện đã hoàn thành trước đó!\n**Bạn đã thua**, p!pass <độ khó> để chơi lại.')
@@ -668,8 +668,8 @@ async def cmd_trl(message, args):
         MK_GAMES.pop(ch, None)
         await message.reply(f'🏆 Chính xác! <@{message.author.id}> đã tìm ra mật khẩu đáp ứng mọi điều kiện (sau {g["count"]} lần gửi).')
         return
-    rid, name = res['missing'][0]
-    text = f'Password thiếu điều kiện {rid}: {name}'
+    pos, name = res['missing'][0]
+    text = f'Password thiếu điều kiện {pos}: {name}'
     if len(res['missing']) > 1:
         more = [f'{i}. {n}' for i, n in res['missing']]
         text += '\n\nTất cả điều kiện đang thiếu:\n' + '\n'.join(more)
