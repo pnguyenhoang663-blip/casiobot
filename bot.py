@@ -69,12 +69,15 @@ def save_config():
 def guild_settings(guild_id):
     gid = str(guild_id)
     if gid not in CONFIG['guilds']:
-        CONFIG['guilds'][gid] = {'channel': None, 'search580': None, 'search880': None, 'ai_key': None}
-    return CONFIG['guilds'][gid]
+        CONFIG['guilds'][gid] = {'channel': [], 'search580': None, 'search880': None, 'ai_key': None}
+    gs = CONFIG['guilds'][gid]
+    if not isinstance(gs.get('channel'), list):
+        gs['channel'] = [gs['channel']] if gs.get('channel') else []
+    return gs
 
 
-def locked_channel_id(guild_id):
-    return guild_settings(guild_id).get('channel')
+def locked_channels(guild_id):
+    return guild_settings(guild_id).get('channel', [])
 
 
 def is_admin(message):
@@ -266,6 +269,15 @@ async def cmd_ping(message, args):
     await message.reply(f'Pong! {ms}ms, Phong đang nhớ ny UwU')
 
 
+def fmt_channel_list(guild, lst):
+    lines = []
+    for i, c in enumerate(lst, start=1):
+        ch = guild.get_channel(c)
+        label = ch.mention if ch else f'`{c}`'
+        lines.append(f'{i}. {label}')
+    return '\n'.join(lines)
+
+
 async def cmd_setchannel(message, args):
     if not is_admin(message):
         await message.reply('❌ Chỉ có quyền admin mới dùng được lệnh này!')
@@ -278,9 +290,14 @@ async def cmd_setchannel(message, args):
     if not chan:
         await message.reply(wrong_msg('setchannel', 'không tìm thấy kênh có id đó', f'{PREFIX}setchannel <id>'))
         return
-    guild_settings(message.guild.id)['channel'] = cid
+    lst = locked_channels(message.guild.id)
+    if cid in lst:
+        reply = await message.reply(f'Kênh <#{cid}> đã có trong danh sách rồi!')
+        await reply.delete(delay=5)
+        return
+    lst.append(cid)
     save_config()
-    reply = await message.reply(f'Từ giờ bot chỉ hoạt động ở kênh <#{cid}>')
+    reply = await message.reply(f'Đã thêm kênh <#{cid}> vào danh sách (tổng {len(lst)} kênh).')
     await reply.delete(delay=5)
 
 
@@ -288,9 +305,39 @@ async def cmd_delchannel(message, args):
     if not is_admin(message):
         await message.reply('❌ Chỉ có quyền admin mới dùng được lệnh này!')
         return
-    guild_settings(message.guild.id)['channel'] = None
+    lst = locked_channels(message.guild.id)
+    if not lst:
+        await message.reply('Danh sách kênh trống — bot đang hoạt động ở mọi kênh.')
+        return
+    if not args:
+        await message.reply(f'Cách dùng: `{PREFIX}delchannel <số hoặc id>`\n{fmt_channel_list(message.guild, lst)}')
+        return
+    a = args.strip()
+    if not a.isdigit():
+        await message.reply(wrong_msg('delchannel', f'`{a}` không phải số thứ tự trong danh sách hoặc id kênh', f'{PREFIX}delchannel <số hoặc id>'))
+        return
+    n = int(a)
+    removed = None
+    if 1 <= n <= len(lst):
+        removed = lst.pop(n - 1)
+    else:
+        chk = message.guild.get_channel(n)
+        if chk and n in lst:
+            lst.remove(n)
+            removed = n
+    if removed is None:
+        await message.reply('Không tìm thấy kênh đó trong danh sách.')
+        return
     save_config()
-    await message.reply('Đã xoá kênh, bot hoạt động ở mọi kênh!')
+    await message.reply(f'Đã xoá kênh <#{removed}> khỏi danh sách (còn {len(lst)} kênh).')
+
+
+async def cmd_listchannel(message, args):
+    lst = locked_channels(message.guild.id)
+    if not lst:
+        await message.reply('Danh sách kênh trống — bot hoạt động ở mọi kênh.')
+        return
+    await message.reply('Các kênh bot được phép hoạt động:\n' + fmt_channel_list(message.guild, lst))
 
 
 async def cmd_credit(message, args):
@@ -976,6 +1023,7 @@ COMMANDS = {
     'ping': cmd_ping,
     'setchannel': cmd_setchannel,
     'delchannel': cmd_delchannel,
+    'listchannel': cmd_listchannel,
     'credit': cmd_credit,
     'comp580': cmd_comp580,
     'comp880': cmd_comp880,
@@ -1033,9 +1081,10 @@ async def on_message(message):
         await handle_noitu_move(message)
         await handle_ai_message(message)
         return
-    lc = locked_channel_id(message.guild.id)
-    if lc and message.channel.id != lc:
-        reply = await message.reply(f'Bot chỉ hoạt động ở kênh <#{lc}> thôi!')
+    channels = locked_channels(message.guild.id)
+    if channels and message.channel.id not in channels:
+        names = ', '.join(f'<#{c}>' for c in channels)
+        reply = await message.reply(f'Bot chỉ hoạt động ở kênh {names} thôi!')
         await reply.delete(delay=5)
         return
     handler = COMMANDS.get(name)
