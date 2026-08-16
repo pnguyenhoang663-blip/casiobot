@@ -13,6 +13,7 @@ import discord
 from PIL import Image
 
 import compiler_lib as cl
+import matkhau
 import noitu
 import vd_docs
 
@@ -130,7 +131,7 @@ async def read_image(attachment):
 
 def build_page_chung():
     embed = discord.Embed(title='📖 Lệnh chung', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/4 - Chọn trang khác bên dưới để xem tiếp')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/5 - Chọn trang khác bên dưới để xem tiếp')
     embed.add_field(name=f'`{PREFIX}help`', value='Mở ra bảng hướng dẫn', inline=False)
     embed.add_field(name=f'`{PREFIX}ping`', value='Ping xem bot còn không', inline=False)
     embed.add_field(name=f'`{PREFIX}setchannel <id>`', value='Set kênh bot chỉ được hoạt động tại kênh đó (Chỉ có quyền admin)', inline=False)
@@ -141,7 +142,7 @@ def build_page_chung():
 
 def build_page_casio():
     embed = discord.Embed(title='🧮 Casio tools', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/4')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/5')
     embed.add_field(name=f'`{PREFIX}comp580 <asm>`', value='Compiler asm theo model 580vnx', inline=False)
     embed.add_field(name=f'`{PREFIX}comp880 <asm>`', value='Compiler asm theo model 880btg', inline=False)
     embed.add_field(name=f'`{PREFIX}decomp <model> <hex>`', value='Decomp theo model (580 hoặc 880)', inline=False)
@@ -161,7 +162,7 @@ def build_page_casio():
 
 def build_page_games():
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/4 - Vui là chính 😎')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/5 - Vui là chính 😎')
     embed.add_field(name=f'`{PREFIX}noitu`', value='Bắt đầu nối từ với từ ngẫu nhiên (`p!noitu 1` hoặc `p!noitu 2` chọn chế độ)', inline=False)
     embed.add_field(name=f'`{PREFIX}noitiep <1/2>`', value='Chọn chế độ: 1. Nối 1 lần (mỗi người chỉ nối 1 từ) / 2. Nối nhiều (nối liên tiếp)', inline=False)
     embed.add_field(name=f'`{PREFIX}dung`', value='Tạm dừng trò chơi tạm thời', inline=False)
@@ -173,7 +174,7 @@ def build_page_games():
 
 def build_page_ai():
     embed = discord.Embed(title='🤖 AI', color=0x7b68ee)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 4/4 - Nói chuyện với AI')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 4/5 - Nói chuyện với AI')
     embed.add_field(name=f'`{PREFIX}join`', value='Bot vào cuộc hội thoại, không cần ping hay reply', inline=False)
     embed.add_field(name=f'`{PREFIX}leave`', value='Bot rời cuộc hội thoại, cần ping hoặc reply', inline=False)
     embed.add_field(name=f'`{PREFIX}setkey <key>`', value='Set key', inline=False)
@@ -184,6 +185,16 @@ def build_page_ai():
     return embed
 
 
+def build_page_pass():
+    embed = discord.Embed(title='🔐 Password game', color=0xff9900)
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 5/5')
+    embed.add_field(name=f'`{PREFIX}pass <độ khó>`', value='Bắt đầu game (dễ / bình thường / khó / siêu khó)', inline=False)
+    embed.add_field(name=f'`{PREFIX}trl <chuỗi>`', value='Gửi mật khẩu để kiểm tra điều kiện (chỉ người bắt đầu)', inline=False)
+    embed.add_field(name=f'`{PREFIX}stoppass`', value='Dừng trò chơi', inline=False)
+    embed.add_field(name='📜 Luật chơi', value='Bot đưa ra danh sách các điều kiện, gõ `p!trl` với mật khẩu đáp ứng hết là thắng. Riêng Siêu khó: làm hỏng điều kiện đã hoàn thành là thua.', inline=False)
+    return embed
+
+
 class HelpSelect(discord.ui.Select):
     def __init__(self, pages):
         options = [
@@ -191,6 +202,7 @@ class HelpSelect(discord.ui.Select):
             discord.SelectOption(label='Casio tools', value='1', emoji='🧮'),
             discord.SelectOption(label='Nối từ', value='2', emoji='🎮'),
             discord.SelectOption(label='AI', value='3', emoji='🤖'),
+            discord.SelectOption(label='Password game', value='4', emoji='🔐'),
         ]
         super().__init__(placeholder='Chọn trang hướng dẫn', options=options, row=0)
         self.pages = pages
@@ -243,7 +255,7 @@ class VdDocsView(discord.ui.View):
 # ---------------- LỆNH CHUNG ----------------
 
 async def cmd_help(message, args):
-    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai()]
+    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai(), build_page_pass()]
     view = HelpView(pages)
     msg = await message.reply(embed=pages[0], view=view)
     view.message = msg
@@ -607,6 +619,69 @@ async def do_find(message, args, key, model):
 
 
 GAMES = {}
+MK_GAMES = {}
+
+
+async def cmd_pass(message, args):
+    level = matkhau.parse_level(args)
+    if not level:
+        await message.reply(wrong_msg('pass', f'độ khó `{args.strip() or "?"}` không hợp lệ', 'p!pass <dễ|bình thường|khó|siêu khó>'))
+        return
+    if not matkhau.LEVELS[level]['rule_ids']:
+        await message.reply(f'🔒 Chế độ **{matkhau.LEVELS[level]["label"]}** chưa ra mắt. Bản hiện tại chỉ có **Easy (Dễ)**.')
+        return
+    rules = matkhau.build_rules(level)
+    ch = str(message.channel.id)
+    MK_GAMES[ch] = {'level': level, 'rules': rules, 'starter': message.author.id, 'passed': set(), 'count': 0}
+    lines = [
+        f'🔐 **Password game — {matkhau.LEVELS[level]["label"]}** ({len(rules)} điều kiện)',
+        f'Người chơi: <@{message.author.id}> — gửi mật khẩu bằng `p!trl <chuỗi>`.',
+        'Các điều kiện:',
+    ]
+    for r in rules:
+        lines.append(f'**{r["id"]}.** {r["name"]}')
+    for chunk in vd_docs.chunk_text('\n'.join(lines)):
+        await message.channel.send(chunk)
+
+
+async def cmd_trl(message, args):
+    ch = str(message.channel.id)
+    g = MK_GAMES.get(ch)
+    if not g:
+        await message.reply('Không có trò chơi nào đang chạy. Gõ `p!pass <độ khó>` để bắt đầu.')
+        return
+    if message.author.id != g['starter']:
+        await message.reply(f'Chỉ <@{g["starter"]}> được chơi thôi! (người bắt đầu game)')
+        return
+    pw = args
+    if not pw:
+        await message.reply(miss_msg('trl', 'p!trl <chuỗi mật khẩu>'))
+        return
+    res = matkhau.check(pw, g['rules'], g['passed'])
+    if res['lost']:
+        MK_GAMES.pop(ch, None)
+        await message.reply('💥 Bạn đã làm hỏng một điều kiện đã hoàn thành trước đó!\n**Bạn đã thua**, p!pass <độ khó> để chơi lại.')
+        return
+    g['passed'] = res['passed']
+    g['count'] += 1
+    if res['ok']:
+        MK_GAMES.pop(ch, None)
+        await message.reply(f'🏆 Chính xác! <@{message.author.id}> đã tìm ra mật khẩu đáp ứng mọi điều kiện (sau {g["count"]} lần gửi).')
+        return
+    rid, name = res['missing'][0]
+    text = f'Password thiếu điều kiện {rid}: {name}'
+    if len(res['missing']) > 1:
+        more = [f'{i}. {n}' for i, n in res['missing']]
+        text += '\n\nTất cả điều kiện đang thiếu:\n' + '\n'.join(more)
+    await message.reply(text)
+
+
+async def cmd_stoppass(message, args):
+    g = MK_GAMES.pop(str(message.channel.id), None)
+    if not g:
+        await message.reply('Không có trò chơi nào để dừng.')
+        return
+    await message.reply(f'<@{g["starter"]}> đã chịu thua, gà!')
 
 
 async def cmd_noitu(message, args):
@@ -923,6 +998,9 @@ COMMANDS = {
     'delkey': cmd_ai_delkey,
     'showkey': cmd_ai_showkey,
     'models': cmd_ai_models,
+    'pass': cmd_pass,
+    'trl': cmd_trl,
+    'stoppass': cmd_stoppass,
 }
 
 
