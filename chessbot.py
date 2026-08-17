@@ -56,8 +56,9 @@ def _find_font():
         return _font_path or None
     roots = [r'C:\Windows\Fonts', '/usr/share/fonts', '/usr/local/share/fonts',
              '/System/Library/Fonts', '/Library/Fonts']
-    names = ['DejaVuSans.ttf', 'DejaVuSerif.ttf', 'seguisym.ttf', 'Symbola.ttf',
-             'NotoSansSymbols-Regular.ttf']
+    names = ['NotoSansSymbols2-Regular.ttf', 'NotoSansSymbols-Regular.ttf',
+             'ChessMerida.ttf', 'Chess Merida.ttf', 'merida.ttf',
+             'seguisym.ttf', 'Symbola.ttf', 'DejaVuSans.ttf', 'DejaVuSerif.ttf']
     for root in roots:
         if not os.path.isdir(root):
             continue
@@ -66,7 +67,8 @@ def _find_font():
             if os.path.exists(p):
                 _font_path = p
                 return p
-    for pat in ('**/DejaVuSans.ttf', '**/seguisym.ttf', '**/Symbola.ttf'):
+    for pat in ('**/NotoSansSymbols2-Regular.ttf', '**/NotoSansSymbols-Regular.ttf',
+                '**/seguisym.ttf', '**/Symbola.ttf', '**/DejaVuSans.ttf'):
         for root in roots:
             if not os.path.isdir(root):
                 continue
@@ -87,7 +89,7 @@ def board_png(board):
             d.rectangle([c * SQ, r * SQ, (c + 1) * SQ, (r + 1) * SQ], fill=color)
 
     fp = _find_font()
-    font = ImageFont.truetype(fp, int(SQ * 0.78)) if fp else None
+    font = ImageFont.truetype(fp, int(SQ * 0.86)) if fp else None
     use_glyph = font is not None
     for sq in chess.SQUARES:
         p = board.piece_at(sq)
@@ -107,9 +109,23 @@ def board_png(board):
             th = bbox[3] - bbox[1]
             tx = x + (SQ - tw) / 2 - bbox[0]
             ty = y + (SQ - th) / 2 - bbox[1]
+            shadow = (70, 85, 60)
+            d.text((tx + 1.5, ty + 1.5), ch, font=font, fill=shadow, stroke_width=2, stroke_fill=shadow)
             d.text((tx, ty), ch, font=font, fill=fill, stroke_width=2, stroke_fill=outline)
         else:
             d.text((x + SQ / 4, y + SQ / 4), ch, fill=fill)
+
+    label_font = ImageFont.truetype(fp, int(SQ * 0.30)) if fp else None
+    if label_font:
+        for c in range(8):
+            is_light = (7 + c) % 2 == 0
+            colr = DARK if is_light else LIGHT
+            d.text((c * SQ + 2, 7 * SQ + SQ - int(SQ * 0.40)), chr(97 + c), font=label_font, fill=colr)
+        for r in range(8):
+            is_light = (r + 0) % 2 == 0
+            colr = DARK if is_light else LIGHT
+            d.text((2, r * SQ + 2), str(8 - r), font=label_font, fill=colr)
+
     buf = io.BytesIO()
     img.save(buf, 'PNG')
     buf.seek(0)
