@@ -214,7 +214,7 @@ def build_page_chess():
     embed.add_field(name=f'`{PREFIX}chess <username> [trắng|đen|random]`', value='Thách đấu người chơi + chọn màu (mặc định random)', inline=False)
     embed.add_field(name=f'`{PREFIX}chessok`', value='Chấp nhận lời thách đấu', inline=False)
     embed.add_field(name=f'`{PREFIX}chessno`', value='Từ chối lời thách đấu', inline=False)
-    embed.add_field(name=f'`{PREFIX}chessbot <độ khó> [trắng|đen|random]`', value='Chơi với bot (dễ/bình thường/khó/siêu khó) + chọn màu (mặc định random)', inline=False)
+    embed.add_field(name=f'`{PREFIX}chessbot <độ khó> [trắng|đen|random]`', value='Chơi với bot + chọn màu (mặc định random). Độ khó: Dễ (100-400) · Bình thường (600-900) · Khó (1200-1600) · Siêu khó (2000-2400)', inline=False)
     embed.add_field(name='🎮 Khi đã vào trận', value='Gõ **không cần `p!`**:\n`move <nước>` — di chuyển cờ (vd: e2e4, Nf3, O-O)\n`ngung` — tạm dừng\n`tiep` — tiếp tục\n`thua` — đầu hàng', inline=False)
     embed.add_field(name='📌 Lưu ý', value='Các lệnh `move / ngung / tiep / thua` **chỉ dùng được khi đã vào trò chơi** — tin nhắn khác không ảnh hưởng.', inline=False)
     return embed
