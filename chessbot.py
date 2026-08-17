@@ -311,14 +311,24 @@ def evaluate_played_move(board, mv, depth):
 # ---------------- HELPERS ---------------- 
 
 async def _send_turn(g, channel, text):
-    if g.get('img_msg'):
-        try:
-            await g['img_msg'].delete()
-        except Exception:
-            pass
     img = await asyncio.to_thread(board_png, g['board'])
     msg = await channel.send(content=text, file=discord.File(img, 'banco.png'))
     g['img_msg'] = msg
+    g.setdefault('imgs', []).append(msg)
+
+
+async def _cleanup_except_final(g):
+    imgs = g.get('imgs', [])
+    if not imgs:
+        return
+    final = imgs[-1]
+    for m in imgs:
+        if m.id == final.id:
+            continue
+        try:
+            await m.delete()
+        except Exception:
+            pass
 
 
 def _game_over_text(g):
@@ -342,6 +352,7 @@ async def _maybe_end(g, channel):
     end = _game_over_text(g)
     if end:
         await _send_turn(g, channel, end)
+        await _cleanup_except_final(g)
         CHESS.pop(str(channel.id), None)
         return True
     return False
@@ -393,13 +404,14 @@ async def cmd_chessok(message, args, prefix):
     CHALLENGES.pop(ch)
     board = chess.Board()
     g = {'board': board, 'white': chall['from'], 'black': chall['to'], 'bot': False,
-         'difficulty': '', 'paused': False, 'img_msg': None}
+         'difficulty': '', 'paused': False, 'img_msg': None, 'imgs': []}
     CHESS[ch] = g
     img = await asyncio.to_thread(board_png, board)
     msg = await message.channel.send(
         content=f'♟️ Trận cờ bắt đầu!\n<@{chall["from"]}> (Trắng) vs <@{chall["to"]}> (Đen)\nĐi nước: `p!chessmove <nước>`',
         file=discord.File(img, 'banco.png'))
     g['img_msg'] = msg
+    g['imgs'].append(msg)
 
 
 async def cmd_chessno(message, args, prefix):
@@ -423,13 +435,14 @@ async def cmd_chessbot(message, args, prefix):
         return
     board = chess.Board()
     g = {'board': board, 'white': message.author.id, 'black': 'bot', 'bot': True,
-         'difficulty': level, 'paused': False, 'img_msg': None}
+         'difficulty': level, 'paused': False, 'img_msg': None, 'imgs': []}
     CHESS[ch] = g
     img = await asyncio.to_thread(board_png, board)
     msg = await message.channel.send(
         content=f'🤖 Trận cờ với Bot (**{DIFFS[level]["label"]}**) bắt đầu!\nBạn cầm **Trắng** — đi: `p!chessmove <nước>`',
         file=discord.File(img, 'banco.png'))
     g['img_msg'] = msg
+    g['imgs'].append(msg)
 
 
 async def cmd_chessmove(message, args, prefix):
@@ -532,11 +545,5 @@ async def cmd_chessthua(message, args, prefix):
         winner_id = g['black'] if resigner == g['white'] else g['white']
         loser = f'<@{resigner}>'
         winner = f'<@{winner_id}>'
-    if g.get('img_msg'):
-        try:
-            await g['img_msg'].delete()
-        except Exception:
-            pass
-    img = await asyncio.to_thread(board_png, g['board'])
-    await message.channel.send(content=f'🏳️ {loser} : Đầu hàng — 👑 {winner} : Chiến thắng',
-                               file=discord.File(img, 'banco.png'))
+    await _send_turn(g, message.channel, f'🏳️ {loser} : Đầu hàng — 👑 {winner} : Chiến thắng')
+    await _cleanup_except_final(g)
