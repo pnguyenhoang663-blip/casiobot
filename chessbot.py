@@ -4,6 +4,7 @@ import io
 import os
 import random
 import re
+import time
 
 import chess
 import discord
@@ -25,10 +26,10 @@ CHESS = {}
 CHALLENGES = {}
 
 DIFFS = {
-    'easy': {'label': 'Dễ', 'depth': 1, 'noise': 0.8},
-    'normal': {'label': 'Bình thường', 'depth': 2, 'noise': 0.3},
-    'hard': {'label': 'Khó', 'depth': 3, 'noise': 0.1},
-    'hardcore': {'label': 'Siêu khó', 'depth': 4, 'noise': 0.0},
+    'easy': {'label': 'Dễ', 'depth': 1, 'noise': 0.8, 'budget': 1.0},
+    'normal': {'label': 'Bình thường', 'depth': 2, 'noise': 0.3, 'budget': 2.0},
+    'hard': {'label': 'Khó', 'depth': 3, 'noise': 0.1, 'budget': 3.0},
+    'hardcore': {'label': 'Siêu khó', 'depth': 4, 'noise': 0.0, 'budget': 4.0},
 }
 
 
@@ -222,7 +223,13 @@ def evaluate(board):
     return score
 
 
-def search(board, depth, alpha, beta):
+class _SearchTimeout(Exception):
+    pass
+
+
+def search(board, depth, alpha, beta, deadline=None):
+    if deadline is not None and time.monotonic() > deadline:
+        raise _SearchTimeout()
     if depth == 0:
         return evaluate(board)
     legal = list(board.legal_moves)
@@ -234,8 +241,10 @@ def search(board, depth, alpha, beta):
     best = -INF
     for mv in legal:
         board.push(mv)
-        v = -search(board, depth - 1, -beta, -alpha)
-        board.pop()
+        try:
+            v = -search(board, depth - 1, -beta, -alpha, deadline)
+        finally:
+            board.pop()
         if v > best:
             best = v
         if best > alpha:
@@ -245,53 +254,102 @@ def search(board, depth, alpha, beta):
     return best
 
 
-def score_move(board, mv, depth):
+def score_move(board, mv, depth, deadline=None):
     board.push(mv)
-    v = -search(board, max(depth - 1, 0), -INF, INF)
-    board.pop()
-    return v
+    try:
+        v = -search(board, max(depth - 1, 0), -INF, INF, deadline)
+        board.pop()
+        return v
+    except _SearchTimeout:
+        board.pop()
+        raise
 
 
-def best_move(board, depth, noise):
+def best_move(board, depth, noise, time_budget=2.0):
     legal = list(board.legal_moves)
     if not legal:
         return None
+    deadline = time.monotonic() + time_budget
     random.shuffle(legal)
     best = None
     best_s = -INF
-    for mv in legal:
-        s = score_move(board, mv, depth) + random.uniform(-noise, noise)
-        if s > best_s:
-            best_s = s
-            best = mv
+    try:
+        for mv in legal:
+            s = score_move(board, mv, depth, deadline) + random.uniform(-noise, noise)
+            if s > best_s:
+                best_s = s
+                best = mv
+    except _SearchTimeout:
+        pass
+    if best is None and legal:
+        best = legal[0]
     return best
+
+
+def _win_score(board, depth):
+    """Điểm kiểu negamax chỉ để tìm chiếu hết: >50000 nghĩa là bên đang đi thắng buộc trong depth ply."""
+    if board.is_checkmate():
+        return -99999 + (10 - depth)
+    if board.is_stalemate() or board.is_insufficient_material():
+        return 0
+    if depth <= 0:
+        return 0
+    legal = list(board.legal_moves)
+    best = -999999
+    for mv in legal:
+        board.push(mv)
+        v = -_win_score(board, depth - 1)
+        board.pop()
+        if v > best:
+            best = v
+        if best > 50000:
+            break
+    return best
+
+
+def _forces_mate(board_after_mover_moved, plies):
+    """Sau khi mover đi (đến lượt đối thủ): True nếu mover ép chiếu hết trong `plies` ply."""
+    return -_win_score(board_after_mover_moved, plies) > 40000
 
 
 def evaluate_played_move(board, mv, depth):
     legal = list(board.legal_moves)
     if not legal:
         return '❓️', 'Hết cờ'
-    mate_move = None
+
+    board.push(mv)
+    mates_now = board.is_checkmate()
+    board.pop()
+    if mates_now:
+        return '#', 'Hết cờ'
+
+    if len(legal) == 1:
+        if mates_now:
+            return '⏩️', 'Ép buộc (dẫn đến chiếu hết)'
+        return '➡️', 'Ép buộc'
+
+    if board.ply() < 12 and mv.uci() in BOOK_MOVES:
+        return '📖', 'Giáo khoa'
+
+    # Bỏ lỡ chiếu hết (có nước chiếu hết trong 1 nhưng không đi)
+    has_mate1 = False
     for m in legal:
         board.push(m)
         mm = board.is_checkmate()
         board.pop()
         if mm:
-            mate_move = m
-            break
-    if mate_move is not None:
-        if mv == mate_move:
-            return '#', 'Hết cờ'
+            has_mate1 = True
+            if m == mv:
+                return '#', 'Hết cờ'
+    if has_mate1:
         return '➖️', 'Bỏ lỡ chiếu hết'
-    if len(legal) == 1:
-        board.push(mv)
-        mm = board.is_checkmate()
-        board.pop()
-        if mm:
-            return '⏩️', 'Ép buộc (dẫn đến chiếu hết)'
-        return '➡️', 'Ép buộc'
-    if board.ply() < 12 and mv.uci() in BOOK_MOVES:
-        return '📖', 'Giáo khoa'
+
+    # Đe dọa/ép chiếu hết: nước vừa đi khiến đối thủ không tránh được chiếu hết
+    board.push(mv)
+    forced = _forces_mate(board, 2)
+    board.pop()
+    if forced:
+        return '⭐️', 'Tốt nhất'
 
     def _sc(m):
         return score_move(board, m, depth)
@@ -299,12 +357,14 @@ def evaluate_played_move(board, mv, depth):
     best_score = max(_sc(m) for m in legal)
     played = _sc(mv)
     loss = best_score - played
-    if best_score >= 1.5:
-        good = [m for m in legal if _sc(m) >= best_score - 0.2]
+
+    if best_score >= 2.0:
+        good = [m for m in legal if _sc(m) >= best_score - 0.3]
         if len(good) == 1 and good[0] == mv:
             return '‼️', 'Thiên tài'
-    if best_score >= 1.0 and played < 0.2:
+    if best_score >= 1.5 and played < 0.3:
         return '❌️', 'Bỏ lỡ cơ hội'
+
     best_move_here = max(legal, key=_sc)
     if loss <= 0.05:
         if mv == best_move_here:
@@ -501,7 +561,7 @@ async def cmd_chessbot(message, args, prefix):
     if player_color == 'black':
         d = DIFFS[level]
         ev_depth = min(max(d['depth'], 1), 3)
-        bm = await asyncio.to_thread(best_move, board, d['depth'], d['noise'])
+        bm = await asyncio.to_thread(best_move, board, d['depth'], d['noise'], d['budget'])
         if bm:
             bicon, blabel = await asyncio.to_thread(evaluate_played_move, board, bm, ev_depth)
             bsan = board.san(bm)
@@ -517,7 +577,7 @@ async def cmd_chessmove(message, args, prefix):
         await message.reply('❌ Chưa có trận cờ. Dùng `p!chessbot <độ khó>` hoặc `p!chess <user>`.')
         return
     if g.get('paused'):
-        await message.reply('⏸️ Trận cờ đang tạm dừng — `p!chesstiep` để tiếp tục.')
+        await message.reply('⏸️ Trận cờ đang tạm dừng — `tiep` để tiếp tục.')
         return
     if not args.strip():
         await message.reply(_miss('chessmove', 'p!chessmove <nước> (vd e2e4)'))
@@ -559,7 +619,7 @@ async def cmd_chessmove(message, args, prefix):
         return
     if g.get('bot') and not board.is_game_over():
         d = DIFFS[g['difficulty']]
-        bm = await asyncio.to_thread(best_move, board, d['depth'], d['noise'])
+        bm = await asyncio.to_thread(best_move, board, d['depth'], d['noise'], d['budget'])
         if bm:
             bicon, blabel = await asyncio.to_thread(evaluate_played_move, board, bm, ev_depth)
             bsan = board.san(bm)
