@@ -15,6 +15,7 @@ from PIL import Image
 import compiler_lib as cl
 import matkhau
 import mc_cmds
+import mc_pvp
 import noitu
 import vd_docs
 
@@ -212,6 +213,7 @@ def build_page_minecraft():
     embed = discord.Embed(title='⛏️ Minecraft tools', color=0x55aa33)
     embed.set_footer(text=f'Prefix: {PREFIX} | Trang 6/6')
     embed.add_field(name=f'`{PREFIX}commandguide`', value='Mở bảng hướng dẫn lệnh Minecraft, chọn 1 nhóm để xem lệnh', inline=False)
+    embed.add_field(name=f'`{PREFIX}minepvp`', value='Guide PvP (Mace, Spear/Thương, Mace Swap) — chọn 1 guide', inline=False)
     return embed
 
 
@@ -715,6 +717,34 @@ async def cmd_commandguide(message, args):
     await message.channel.send(embed=embed, view=GuideView())
 
 
+class PvpSelect(discord.ui.Select):
+    def __init__(self, options, placeholder):
+        super().__init__(placeholder=placeholder, options=options, min_values=1, max_values=1)
+
+    async def callback(self, interaction):
+        item = mc_pvp.DATA[self.values[0]]
+        text = item['content']
+        chunks = vd_docs.chunk_text(text)
+        await interaction.response.defer()
+        await interaction.message.edit(content=chunks[0], embed=None, view=None)
+        for c in chunks[1:]:
+            await interaction.channel.send(c)
+
+
+class PvpView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=180)
+        options = [discord.SelectOption(label=item['title'][:100], value=k) for k, item in mc_pvp.DATA.items()]
+        self.add_item(PvpSelect(options, 'Chọn 1 kỹ thuật PvP...'))
+
+
+async def cmd_minepvp(message, args):
+    embed = discord.Embed(title='⚔️ Minecraft PvP Guide', color=0xff4444)
+    embed.description = 'Các kỹ thuật PvP Minecraft Java 1.21. Chọn 1 guide để xem.'
+    embed.set_footer(text=f'Tổng cộng {len(mc_pvp.DATA)} guide | Guide viết bởi Phong & Gemini')
+    await message.channel.send(embed=embed, view=PvpView())
+
+
 async def cmd_pass(message, args):
     level = matkhau.parse_level(args)
     if not level:
@@ -1124,6 +1154,7 @@ COMMANDS = {
     'trl': cmd_trl,
     'stoppass': cmd_stoppass,
     'commandguide': cmd_commandguide,
+    'minepvp': cmd_minepvp,
 }
 
 
