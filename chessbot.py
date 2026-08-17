@@ -373,6 +373,17 @@ async def _maybe_end(g, channel):
 
 # ---------------- COMMANDS ---------------- 
 
+def parse_color(s):
+    s = (s or '').strip().lower()
+    if s in ('trắng', 'trang', 'white', 'w', 't'):
+        return 'white'
+    if s in ('đen', 'den', 'black', 'b', 'd'):
+        return 'black'
+    if s in ('random', 'ngẫu nhiên', 'ngau nhien', 'r', 'rd', 'rand'):
+        return 'random'
+    return None
+
+
 def _wrong(cmd, detail, usage):
     return f'❌ **Sai** `{cmd}` ({detail})! Cách dùng: `{usage}`'
 
@@ -382,30 +393,39 @@ def _miss(cmd, usage):
 
 
 async def cmd_chess(message, args, prefix):
+    parts = args.split(None, 1)
+    name = parts[0] if parts else ''
+    color_raw = parts[1] if len(parts) > 1 else ''
     target = None
     if message.mentions:
         target = message.mentions[0]
     else:
-        a = args.strip()
-        if a.isdigit():
-            target = message.guild.get_member(int(a))
-        elif a:
+        if name.isdigit():
+            target = message.guild.get_member(int(name))
+        elif name:
             for m in message.guild.members:
-                if m.name == a or m.display_name == a or (m.nick and m.nick == a):
+                if m.name == name or m.display_name == name or (m.nick and m.nick == name):
                     target = m
                     break
     if not target:
-        await message.reply(_wrong('chess', 'không tìm thấy người chơi đó', 'p!chess <username>'))
+        await message.reply(_wrong('chess', 'không tìm thấy người chơi đó', 'p!chess <username> [trắng|đen|random]'))
         return
     if target == message.author or target.bot:
         await message.reply('❌ Không thể thách chính mình hoặc bot (bot dùng `p!chessbot`).')
         return
+    color = None
+    if color_raw:
+        color = parse_color(color_raw)
+        if color is None:
+            await message.reply(_wrong('chess', f'`{color_raw}` không hợp lệ', 'p!chess <username> [trắng|đen|random]'))
+            return
     ch = str(message.channel.id)
     if CHESS.get(ch):
         await message.reply('❌ Đã có trận cờ đang chơi ở kênh này.')
         return
-    CHALLENGES[ch] = {'from': message.author.id, 'to': target.id}
-    await message.reply(f'⚔️ <@{target.id}> — <@{message.author.id}> thách đấu cờ vua!\nNhận lời: `p!chessok` · Từ chối: `p!chessno`')
+    CHALLENGES[ch] = {'from': message.author.id, 'to': target.id, 'color': color}
+    col = {'white': ' (Trắng)', 'black': ' (Đen)', None: ' (Random)'}[color]
+    await message.reply(f'⚔️ <@{target.id}> — <@{message.author.id}> thách đấu cờ vua{col}!\nNhận lời: `p!chessok` · Từ chối: `p!chessno`')
 
 
 async def cmd_chessok(message, args, prefix):
@@ -415,13 +435,23 @@ async def cmd_chessok(message, args, prefix):
         await message.reply('❌ Không có lời thách nào cho bạn.')
         return
     CHALLENGES.pop(ch)
+    color = chall.get('color')
+    if color == 'black':
+        white, black = chall['to'], chall['from']
+    elif color == 'white':
+        white, black = chall['from'], chall['to']
+    else:
+        if random.random() < 0.5:
+            white, black = chall['from'], chall['to']
+        else:
+            white, black = chall['to'], chall['from']
     board = chess.Board()
-    g = {'board': board, 'white': chall['from'], 'black': chall['to'], 'bot': False,
+    g = {'board': board, 'white': white, 'black': black, 'bot': False,
          'difficulty': '', 'paused': False, 'img_msg': None, 'imgs': []}
     CHESS[ch] = g
     img = await asyncio.to_thread(board_png, board)
     msg = await message.channel.send(
-        content=f'♟️ Trận cờ bắt đầu!\n<@{chall["from"]}> (Trắng) vs <@{chall["to"]}> (Đen)\nĐi nước: `move <nước>`',
+        content=f'♟️ Trận cờ bắt đầu!\n<@{white}> (Trắng) vs <@{black}> (Đen)\nĐi nước: `move <nước>`',
         file=discord.File(img, 'banco.png'))
     g['img_msg'] = msg
     g['imgs'].append(msg)
@@ -438,24 +468,46 @@ async def cmd_chessno(message, args, prefix):
 
 
 async def cmd_chessbot(message, args, prefix):
-    level = parse_diff(args)
+    parts = args.split(None, 1)
+    level = parse_diff(parts[0] if parts else '')
     if not level:
-        await message.reply(_wrong('chessbot', 'độ khó không hợp lệ', 'p!chessbot <dễ|bình thường|khó|siêu khó>'))
+        await message.reply(_wrong('chessbot', 'độ khó không hợp lệ', 'p!chessbot <dễ|bình thường|khó|siêu khó> [trắng|đen|random]'))
         return
+    player_color = None
+    if len(parts) > 1 and parts[1].strip():
+        player_color = parse_color(parts[1])
+        if player_color is None:
+            await message.reply(_wrong('chessbot', f'`{parts[1].strip()}` không hợp lệ', 'p!chessbot <độ khó> [trắng|đen|random]'))
+            return
+    if player_color is None:
+        player_color = 'white' if random.random() < 0.5 else 'black'
     ch = str(message.channel.id)
     if CHESS.get(ch):
         await message.reply('❌ Đã có trận cờ đang chơi ở kênh này.')
         return
     board = chess.Board()
-    g = {'board': board, 'white': message.author.id, 'black': 'bot', 'bot': True,
+    white = message.author.id if player_color == 'white' else 'bot'
+    black = 'bot' if player_color == 'white' else message.author.id
+    g = {'board': board, 'white': white, 'black': black, 'bot': True,
          'difficulty': level, 'paused': False, 'img_msg': None, 'imgs': []}
     CHESS[ch] = g
+    my_col = 'Trắng' if player_color == 'white' else 'Đen'
     img = await asyncio.to_thread(board_png, board)
     msg = await message.channel.send(
-        content=f'🤖 Trận cờ với Bot (**{DIFFS[level]["label"]}**) bắt đầu!\nBạn cầm **Trắng** — đi: `move <nước>`',
+        content=f'🤖 Trận cờ với Bot (**{DIFFS[level]["label"]}**) bắt đầu!\nBạn cầm **{my_col}** — đi: `move <nước>`',
         file=discord.File(img, 'banco.png'))
     g['img_msg'] = msg
     g['imgs'].append(msg)
+    if player_color == 'black':
+        d = DIFFS[level]
+        ev_depth = min(max(d['depth'], 1), 3)
+        bm = await asyncio.to_thread(best_move, board, d['depth'], d['noise'])
+        if bm:
+            bicon, blabel = await asyncio.to_thread(evaluate_played_move, board, bm, ev_depth)
+            bsan = board.san(bm)
+            board.push(bm)
+            await _send_turn(g, message.channel, f'Bot : {bsan} {bicon} {blabel}')
+            await _maybe_end(g, message.channel)
 
 
 async def cmd_chessmove(message, args, prefix):
@@ -473,10 +525,11 @@ async def cmd_chessmove(message, args, prefix):
     board = g['board']
     turn_color = 'white' if board.turn == chess.WHITE else 'black'
     if g.get('bot'):
-        if message.author.id != g['white']:
-            await message.reply('❌ Trận này là bạn vs Bot — chỉ bạn chơi (Trắng).')
+        if message.author.id not in (g['white'], g['black']):
+            await message.reply('❌ Trận này là bạn vs Bot — chỉ bạn chơi.')
             return
-        if board.turn != chess.WHITE:
+        my_color = 'white' if g['white'] == message.author.id else 'black'
+        if turn_color != my_color:
             await message.reply('❌ Đang đến lượt Bot.')
             return
     else:
