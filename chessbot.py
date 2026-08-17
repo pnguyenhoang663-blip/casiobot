@@ -560,13 +560,11 @@ async def cmd_chessbot(message, args, prefix):
     g['imgs'].append(msg)
     if player_color == 'black':
         d = DIFFS[level]
-        ev_depth = min(max(d['depth'], 1), 3)
         bm = await asyncio.to_thread(best_move, board, d['depth'], d['noise'], d['budget'])
         if bm:
-            bicon, blabel = await asyncio.to_thread(evaluate_played_move, board, bm, ev_depth)
             bsan = board.san(bm)
             board.push(bm)
-            await _send_turn(g, message.channel, f'Bot : {bsan} {bicon} {blabel}')
+            await _send_turn(g, message.channel, f'Bot : {bsan}')
             await _maybe_end(g, message.channel)
 
 
@@ -609,22 +607,19 @@ async def cmd_chessmove(message, args, prefix):
     if mv is None or mv not in board.legal_moves:
         await message.reply(f'❌ Nước không hợp lệ: `{text}`')
         return
-    ev_depth = min(max(DIFFS.get(g['difficulty'], DIFFS['normal'])['depth'] if g.get('bot') else 3, 1), 3)
-    icon, label = await asyncio.to_thread(evaluate_played_move, board, mv, ev_depth)
     san = board.san(mv)
     name = message.author.display_name
     board.push(mv)
-    await _send_turn(g, message.channel, f'{name} : {san} {icon} {label}')
+    await _send_turn(g, message.channel, f'{name} : {san}')
     if await _maybe_end(g, message.channel):
         return
     if g.get('bot') and not board.is_game_over():
         d = DIFFS[g['difficulty']]
         bm = await asyncio.to_thread(best_move, board, d['depth'], d['noise'], d['budget'])
         if bm:
-            bicon, blabel = await asyncio.to_thread(evaluate_played_move, board, bm, ev_depth)
             bsan = board.san(bm)
             board.push(bm)
-            await _send_turn(g, message.channel, f'Bot : {bsan} {bicon} {blabel}')
+            await _send_turn(g, message.channel, f'Bot : {bsan}')
             await _maybe_end(g, message.channel)
 
 
