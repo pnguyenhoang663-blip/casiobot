@@ -26,10 +26,10 @@ CHESS = {}
 CHALLENGES = {}
 
 DIFFS = {
-    'easy': {'label': 'Dễ', 'depth': 1, 'noise': 0.8, 'budget': 1.0},
-    'normal': {'label': 'Bình thường', 'depth': 2, 'noise': 0.3, 'budget': 2.0},
-    'hard': {'label': 'Khó', 'depth': 3, 'noise': 0.1, 'budget': 3.0},
-    'hardcore': {'label': 'Siêu khó', 'depth': 4, 'noise': 0.0, 'budget': 4.0},
+    'easy': {'label': 'Dễ (100-400 ELO)', 'depth': 2, 'noise': 0.6, 'budget': 1.0},
+    'normal': {'label': 'Bình thường (600-900 ELO)', 'depth': 3, 'noise': 0.4, 'budget': 2.0},
+    'hard': {'label': 'Khó (1200-1600 ELO)', 'depth': 4, 'noise': 0.1, 'budget': 3.0},
+    'hardcore': {'label': 'Siêu khó (2000-2400 ELO)', 'depth': 5, 'noise': 0.0, 'budget': 4.0},
 }
 
 
@@ -270,20 +270,24 @@ def best_move(board, depth, noise, time_budget=2.0):
     if not legal:
         return None
     deadline = time.monotonic() + time_budget
-    random.shuffle(legal)
+    ordered = list(legal)
+    random.shuffle(ordered)
     best = None
-    best_s = -INF
-    try:
-        for mv in legal:
-            s = score_move(board, mv, depth, deadline) + random.uniform(-noise, noise)
-            if s > best_s:
-                best_s = s
-                best = mv
-    except _SearchTimeout:
-        pass
-    if best is None and legal:
-        best = legal[0]
-    return best
+    for d in range(1, depth + 1):
+        best_d = None
+        best_s = -INF
+        try:
+            for mv in ordered:
+                s = score_move(board, mv, d, deadline) + random.uniform(-noise, noise)
+                if s > best_s:
+                    best_s = s
+                    best_d = mv
+        except _SearchTimeout:
+            break
+        if best_d is not None:
+            best = best_d
+            ordered = [best_d] + [m for m in ordered if m != best_d]
+    return best if best is not None else legal[0]
 
 
 def _win_score(board, depth):
