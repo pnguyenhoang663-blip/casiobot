@@ -3,6 +3,7 @@ import glob
 import io
 import os
 import random
+import re
 
 import chess
 import discord
@@ -80,13 +81,19 @@ def _find_font():
 
 
 def board_png(board):
-    size = 8 * SQ
-    img = Image.new('RGB', (size, size), LIGHT)
+    MARGIN = 28
+    LABEL_BG = (245, 233, 203)
+    LABEL_FG = (150, 108, 62)
+    bw = 8 * SQ
+    size = bw + MARGIN * 2
+    img = Image.new('RGB', (size, size), LABEL_BG)
     d = ImageDraw.Draw(img)
+    ox = MARGIN
+    oy = MARGIN
     for r in range(8):
         for c in range(8):
             color = LIGHT if (r + c) % 2 == 0 else DARK
-            d.rectangle([c * SQ, r * SQ, (c + 1) * SQ, (r + 1) * SQ], fill=color)
+            d.rectangle([ox + c * SQ, oy + r * SQ, ox + (c + 1) * SQ, oy + (r + 1) * SQ], fill=color)
 
     fp = _find_font()
     font = ImageFont.truetype(fp, int(SQ * 0.86)) if fp else None
@@ -97,8 +104,8 @@ def board_png(board):
             continue
         col = sq % 8
         row = 7 - (sq // 8)
-        x = col * SQ
-        y = row * SQ
+        x = ox + col * SQ
+        y = oy + row * SQ
         sym = p.symbol()
         ch = GLYPH[sym] if use_glyph else LETTER[sym]
         fill = (255, 255, 255) if p.color == chess.WHITE else (0, 0, 0)
@@ -115,16 +122,20 @@ def board_png(board):
         else:
             d.text((x + SQ / 4, y + SQ / 4), ch, fill=fill)
 
-    label_font = ImageFont.truetype(fp, int(SQ * 0.30)) if fp else None
-    if label_font:
-        for c in range(8):
-            is_light = (7 + c) % 2 == 0
-            colr = DARK if is_light else LIGHT
-            d.text((c * SQ + 2, 7 * SQ + SQ - int(SQ * 0.40)), chr(97 + c), font=label_font, fill=colr)
-        for r in range(8):
-            is_light = (r + 0) % 2 == 0
-            colr = DARK if is_light else LIGHT
-            d.text((2, r * SQ + 2), str(8 - r), font=label_font, fill=colr)
+    lf = ImageFont.truetype(fp, int(MARGIN * 0.85)) if fp else ImageFont.load_default()
+
+    def center(xmid, ymid, t):
+        bb = lf.getbbox(t)
+        tw = bb[2] - bb[0]
+        th = bb[3] - bb[1]
+        d.text((xmid - tw / 2 - bb[0], ymid - th / 2 - bb[1]), t, font=lf, fill=LABEL_FG)
+
+    # số bên trái (1-8, trên xuống)
+    for r in range(8):
+        center(MARGIN / 2, oy + r * SQ + SQ / 2, str(8 - r))
+    # chữ bên dưới (a-h)
+    for c in range(8):
+        center(ox + c * SQ + SQ / 2, oy + bw + MARGIN / 2, chr(97 + c))
 
     buf = io.BytesIO()
     img.save(buf, 'PNG')
@@ -408,7 +419,7 @@ async def cmd_chessok(message, args, prefix):
     CHESS[ch] = g
     img = await asyncio.to_thread(board_png, board)
     msg = await message.channel.send(
-        content=f'♟️ Trận cờ bắt đầu!\n<@{chall["from"]}> (Trắng) vs <@{chall["to"]}> (Đen)\nĐi nước: `p!chessmove <nước>`',
+        content=f'♟️ Trận cờ bắt đầu!\n<@{chall["from"]}> (Trắng) vs <@{chall["to"]}> (Đen)\nĐi nước: `move <nước>`',
         file=discord.File(img, 'banco.png'))
     g['img_msg'] = msg
     g['imgs'].append(msg)
@@ -439,7 +450,7 @@ async def cmd_chessbot(message, args, prefix):
     CHESS[ch] = g
     img = await asyncio.to_thread(board_png, board)
     msg = await message.channel.send(
-        content=f'🤖 Trận cờ với Bot (**{DIFFS[level]["label"]}**) bắt đầu!\nBạn cầm **Trắng** — đi: `p!chessmove <nước>`',
+        content=f'🤖 Trận cờ với Bot (**{DIFFS[level]["label"]}**) bắt đầu!\nBạn cầm **Trắng** — đi: `move <nước>`',
         file=discord.File(img, 'banco.png'))
     g['img_msg'] = msg
     g['imgs'].append(msg)
@@ -511,7 +522,7 @@ async def cmd_chessngung(message, args, prefix):
         await message.reply('⏸️ Trận cờ đã tạm dừng rồi.')
         return
     g['paused'] = True
-    await message.reply('⏸️ Đã tạm dừng trận cờ! `p!chesstiep` để tiếp tục.')
+    await message.reply('⏸️ Đã tạm dừng trận cờ! Gõ `tiep` để tiếp tục.')
 
 
 async def cmd_chesstiep(message, args, prefix):
@@ -547,3 +558,24 @@ async def cmd_chessthua(message, args, prefix):
         winner = f'<@{winner_id}>'
     await _send_turn(g, message.channel, f'🏳️ {loser} : Đầu hàng — 👑 {winner} : Chiến thắng')
     await _cleanup_except_final(g)
+
+
+async def handle_bare_chat(message, prefix):
+    ch = str(message.channel.id)
+    if ch not in CHESS:
+        return False
+    low = message.content.strip().lower()
+    if re.match(r'^move\b', low):
+        args = re.sub(r'(?i)^move\s*', '', message.content.strip())
+        await cmd_chessmove(message, args, prefix)
+        return True
+    if low == 'ngung':
+        await cmd_chessngung(message, '', prefix)
+        return True
+    if low == 'tiep':
+        await cmd_chesstiep(message, '', prefix)
+        return True
+    if low == 'thua':
+        await cmd_chessthua(message, '', prefix)
+        return True
+    return False

@@ -215,10 +215,8 @@ def build_page_chess():
     embed.add_field(name=f'`{PREFIX}chessok`', value='Chấp nhận lời thách đấu', inline=False)
     embed.add_field(name=f'`{PREFIX}chessno`', value='Từ chối lời thách đấu', inline=False)
     embed.add_field(name=f'`{PREFIX}chessbot <độ khó>`', value='Chơi với bot (dễ / bình thường / khó / siêu khó)', inline=False)
-    embed.add_field(name=f'`{PREFIX}chessmove <nước>`', value='Di chuyển cờ (vd: e2e4, Nf3, O-O)', inline=False)
-    embed.add_field(name=f'`{PREFIX}chessngung`', value='Tạm thời dừng trò chơi', inline=False)
-    embed.add_field(name=f'`{PREFIX}chesstiep`', value='Tiếp tục khi đang chơi dở', inline=False)
-    embed.add_field(name=f'`{PREFIX}chessthua`', value='Chịu thua', inline=False)
+    embed.add_field(name='🎮 Khi đã vào trận', value='Gõ **không cần `p!`**:\n`move <nước>` — di chuyển cờ (vd: e2e4, Nf3, O-O)\n`ngung` — tạm dừng\n`tiep` — tiếp tục\n`thua` — đầu hàng', inline=False)
+    embed.add_field(name='📌 Lưu ý', value='Các lệnh `move / ngung / tiep / thua` **chỉ dùng được khi đã vào trò chơi** — tin nhắn khác không ảnh hưởng.', inline=False)
     return embed
 
 
@@ -1078,24 +1076,8 @@ async def cmd_chessno(message, args):
     await chessbot.cmd_chessno(message, args, PREFIX)
 
 
-async def cmd_chessngung(message, args):
-    await chessbot.cmd_chessngung(message, args, PREFIX)
-
-
-async def cmd_chesstiep(message, args):
-    await chessbot.cmd_chesstiep(message, args, PREFIX)
-
-
-async def cmd_chessthua(message, args):
-    await chessbot.cmd_chessthua(message, args, PREFIX)
-
-
 async def cmd_chessbot(message, args):
     await chessbot.cmd_chessbot(message, args, PREFIX)
-
-
-async def cmd_chessmove(message, args):
-    await chessbot.cmd_chessmove(message, args, PREFIX)
 
 
 COMMANDS = {
@@ -1137,11 +1119,7 @@ COMMANDS = {
     'chess': cmd_chess,
     'chessok': cmd_chessok,
     'chessno': cmd_chessno,
-    'chessngung': cmd_chessngung,
-    'chesstiep': cmd_chesstiep,
-    'chessthua': cmd_chessthua,
     'chessbot': cmd_chessbot,
-    'chessmove': cmd_chessmove,
 }
 
 
@@ -1167,6 +1145,8 @@ async def on_message(message):
         return
     name, args = parse(message.content)
     if name is None:
+        if await chessbot.handle_bare_chat(message, PREFIX):
+            return
         await handle_noitu_move(message)
         await handle_ai_message(message)
         return
