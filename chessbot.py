@@ -353,9 +353,11 @@ def _game_over_text(g):
         else:
             winner = f'<@{g["white"]}>' if winner_color == 'white' else f'<@{g["black"]}>'
             loser = f'<@{g["white"]}>' if loser_color == 'white' else f'<@{g["black"]}>'
-        return f'👑 {winner} : Chiến thắng\n# {loser} : Hết cờ'
+        return f'# {loser} : Hết cờ — 👑 {winner} : Chiến thắng'
     if board.is_stalemate() or board.is_insufficient_material() or board.is_fifty_moves():
-        return '1/2 : Hòa'
+        if g.get('bot'):
+            return '1/2 : Hòa (Bạn vs Bot)'
+        return f'1/2 : Hòa (<@{g["white"]}> vs <@{g["black"]}>)'
     return None
 
 
