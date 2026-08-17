@@ -13,6 +13,7 @@ import discord
 from PIL import Image
 
 import compiler_lib as cl
+import chessbot
 import matkhau
 import noitu
 import vd_docs
@@ -141,7 +142,7 @@ async def read_image(attachment):
 
 def build_page_chung():
     embed = discord.Embed(title='📖 Lệnh chung', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/5 - Chọn trang khác bên dưới để xem tiếp')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/6 - Chọn trang khác bên dưới để xem tiếp')
     embed.add_field(name=f'`{PREFIX}help`', value='Mở ra bảng hướng dẫn', inline=False)
     embed.add_field(name=f'`{PREFIX}ping`', value='Ping xem bot còn không', inline=False)
     embed.add_field(name=f'`{PREFIX}setchannel <id>`', value='Thêm kênh được phép hoạt động vào danh sách (Chỉ admin)', inline=False)
@@ -153,7 +154,7 @@ def build_page_chung():
 
 def build_page_casio():
     embed = discord.Embed(title='🧮 Casio tools', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/5')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/6')
     embed.add_field(name=f'`{PREFIX}comp580 <asm>`', value='Compiler asm theo model 580vnx', inline=False)
     embed.add_field(name=f'`{PREFIX}comp880 <asm>`', value='Compiler asm theo model 880btg', inline=False)
     embed.add_field(name=f'`{PREFIX}decomp <model> <hex>`', value='Decomp theo model (580 hoặc 880)', inline=False)
@@ -173,7 +174,7 @@ def build_page_casio():
 
 def build_page_games():
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/5 - Vui là chính 😎')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/6 - Vui là chính 😎')
     embed.add_field(name=f'`{PREFIX}noitu`', value='Bắt đầu nối từ với từ ngẫu nhiên (`p!noitu 1` hoặc `p!noitu 2` chọn chế độ)', inline=False)
     embed.add_field(name=f'`{PREFIX}noitiep <1/2>`', value='Chọn chế độ: 1. Nối 1 lần (mỗi người chỉ nối 1 từ) / 2. Nối nhiều (nối liên tiếp)', inline=False)
     embed.add_field(name=f'`{PREFIX}dung`', value='Tạm dừng trò chơi tạm thời', inline=False)
@@ -185,7 +186,7 @@ def build_page_games():
 
 def build_page_ai():
     embed = discord.Embed(title='🤖 AI', color=0x7b68ee)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 4/5 - Nói chuyện với AI')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 4/6 - Nói chuyện với AI')
     embed.add_field(name=f'`{PREFIX}join`', value='Bot vào cuộc hội thoại, không cần ping hay reply', inline=False)
     embed.add_field(name=f'`{PREFIX}leave`', value='Bot rời cuộc hội thoại, cần ping hoặc reply', inline=False)
     embed.add_field(name=f'`{PREFIX}setkey <key>`', value='Set key', inline=False)
@@ -199,11 +200,25 @@ def build_page_ai():
 
 def build_page_pass():
     embed = discord.Embed(title='🔐 Password game', color=0xff9900)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 5/5')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 5/6')
     embed.add_field(name=f'`{PREFIX}pass <độ khó>`', value='Bắt đầu game (dễ / bình thường / khó / siêu khó)', inline=False)
     embed.add_field(name=f'`{PREFIX}trl <chuỗi>`', value='Gửi mật khẩu để kiểm tra điều kiện (chỉ người bắt đầu)', inline=False)
     embed.add_field(name=f'`{PREFIX}stoppass`', value='Dừng trò chơi', inline=False)
     embed.add_field(name='📜 Luật chơi', value='Bot đưa ra danh sách các điều kiện, gõ `p!trl` với mật khẩu đáp ứng hết là thắng. Riêng Siêu khó: làm hỏng điều kiện đã hoàn thành là thua.', inline=False)
+    return embed
+
+
+def build_page_chess():
+    embed = discord.Embed(title='♟️ Cờ vua', color=0xccbb88)
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 6/6')
+    embed.add_field(name=f'`{PREFIX}chess <username>`', value='Gửi lời thách đấu đến người chơi', inline=False)
+    embed.add_field(name=f'`{PREFIX}chessok`', value='Chấp nhận lời thách đấu', inline=False)
+    embed.add_field(name=f'`{PREFIX}chessno`', value='Từ chối lời thách đấu', inline=False)
+    embed.add_field(name=f'`{PREFIX}chessbot <độ khó>`', value='Chơi với bot (dễ / bình thường / khó / siêu khó)', inline=False)
+    embed.add_field(name=f'`{PREFIX}chessmove <nước>`', value='Di chuyển cờ (vd: e2e4, Nf3, O-O)', inline=False)
+    embed.add_field(name=f'`{PREFIX}chessngung`', value='Tạm thời dừng trò chơi', inline=False)
+    embed.add_field(name=f'`{PREFIX}chesstiep`', value='Tiếp tục khi đang chơi dở', inline=False)
+    embed.add_field(name=f'`{PREFIX}chessthua`', value='Chịu thua', inline=False)
     return embed
 
 
@@ -215,6 +230,7 @@ class HelpSelect(discord.ui.Select):
             discord.SelectOption(label='Nối từ', value='2', emoji='🎮'),
             discord.SelectOption(label='AI', value='3', emoji='🤖'),
             discord.SelectOption(label='Password game', value='4', emoji='🔐'),
+            discord.SelectOption(label='Cờ vua', value='5', emoji='♟️'),
         ]
         super().__init__(placeholder='Chọn trang hướng dẫn', options=options, row=0)
         self.pages = pages
@@ -267,7 +283,7 @@ class VdDocsView(discord.ui.View):
 # ---------------- LỆNH CHUNG ----------------
 
 async def cmd_help(message, args):
-    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai(), build_page_pass()]
+    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai(), build_page_pass(), build_page_chess()]
     view = HelpView(pages)
     msg = await message.reply(embed=pages[0], view=view)
     view.message = msg
@@ -1050,6 +1066,38 @@ async def handle_ai_message(message):
         await message.channel.send(c)
 
 
+async def cmd_chess(message, args):
+    await chessbot.cmd_chess(message, args, PREFIX)
+
+
+async def cmd_chessok(message, args):
+    await chessbot.cmd_chessok(message, args, PREFIX)
+
+
+async def cmd_chessno(message, args):
+    await chessbot.cmd_chessno(message, args, PREFIX)
+
+
+async def cmd_chessngung(message, args):
+    await chessbot.cmd_chessngung(message, args, PREFIX)
+
+
+async def cmd_chesstiep(message, args):
+    await chessbot.cmd_chesstiep(message, args, PREFIX)
+
+
+async def cmd_chessthua(message, args):
+    await chessbot.cmd_chessthua(message, args, PREFIX)
+
+
+async def cmd_chessbot(message, args):
+    await chessbot.cmd_chessbot(message, args, PREFIX)
+
+
+async def cmd_chessmove(message, args):
+    await chessbot.cmd_chessmove(message, args, PREFIX)
+
+
 COMMANDS = {
     'help': cmd_help,
     'ping': cmd_ping,
@@ -1086,6 +1134,14 @@ COMMANDS = {
     'pass': cmd_pass,
     'trl': cmd_trl,
     'stoppass': cmd_stoppass,
+    'chess': cmd_chess,
+    'chessok': cmd_chessok,
+    'chessno': cmd_chessno,
+    'chessngung': cmd_chessngung,
+    'chesstiep': cmd_chesstiep,
+    'chessthua': cmd_chessthua,
+    'chessbot': cmd_chessbot,
+    'chessmove': cmd_chessmove,
 }
 
 
