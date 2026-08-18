@@ -14,6 +14,7 @@ from PIL import Image
 
 import compiler_lib as cl
 import chessbot
+import gsearch
 import matkhau
 import noitu
 import vd_docs
@@ -77,7 +78,7 @@ def save_config():
 def guild_settings(guild_id):
     gid = str(guild_id)
     if gid not in CONFIG['guilds']:
-        CONFIG['guilds'][gid] = {'channel': [], 'search580': None, 'search880': None, 'ai_key': None, 'ai_persona': 1}
+        CONFIG['guilds'][gid] = {'channel': [], 'search580': None, 'search880': None, 'ai_key': None, 'ai_persona': 1, 'gg_key': None, 'gg_cx': None}
     gs = CONFIG['guilds'][gid]
     if not isinstance(gs.get('channel'), list):
         gs['channel'] = [gs['channel']] if gs.get('channel') else []
@@ -86,6 +87,12 @@ def guild_settings(guild_id):
 
 def locked_channels(guild_id):
     return guild_settings(guild_id).get('channel', [])
+
+
+def _gg_creds(guild_id):
+    gs = guild_settings(guild_id)
+    return (gs.get('gg_key') or os.getenv('GOOGLE_API_KEY', ''),
+            gs.get('gg_cx') or os.getenv('GOOGLE_CSE_ID', ''))
 
 
 def is_admin(message):
@@ -142,11 +149,11 @@ async def read_image(attachment):
 
 def build_page_chung():
     embed = discord.Embed(title='📖 Lệnh chung', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/6 - Chọn trang khác bên dưới để xem tiếp')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 1/7 - Chọn trang khác bên dưới để xem tiếp')
     embed.add_field(name=f'`{PREFIX}help`', value='Mở ra bảng hướng dẫn', inline=False)
     embed.add_field(name=f'`{PREFIX}ping`', value='Ping xem bot còn không', inline=False)
-    embed.add_field(name=f'`{PREFIX}setchannel <id>`', value='Thêm kênh được phép hoạt động vào danh sách (Chỉ admin)', inline=False)
-    embed.add_field(name=f'`{PREFIX}delchannel <số|id>`', value='Xoá kênh khỏi danh sách theo số thứ tự hoặc id (Chỉ admin)', inline=False)
+    embed.add_field(name=f'`{PREFIX}setchannel <kênh1> <kênh2> ...`', value='Thêm nhiều kênh được phép hoạt động vào danh sách (Chỉ admin)', inline=False)
+    embed.add_field(name=f'`{PREFIX}delchannel <số|id> [<số|id> ...]`', value='Xoá nhiều kênh khỏi danh sách theo số thứ tự hoặc id (Chỉ admin)', inline=False)
     embed.add_field(name=f'`{PREFIX}listchannel`', value='Xem danh sách kênh đang được phép hoạt động', inline=False)
     embed.add_field(name=f'`{PREFIX}credit`', value='Giới thiệu', inline=False)
     return embed
@@ -154,7 +161,7 @@ def build_page_chung():
 
 def build_page_casio():
     embed = discord.Embed(title='🧮 Casio tools', color=0x00aaff)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/6')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 2/7')
     embed.add_field(name=f'`{PREFIX}comp580 <asm>`', value='Compiler asm theo model 580vnx', inline=False)
     embed.add_field(name=f'`{PREFIX}comp880 <asm>`', value='Compiler asm theo model 880btg', inline=False)
     embed.add_field(name=f'`{PREFIX}decomp <model> <hex>`', value='Decomp theo model (580 hoặc 880)', inline=False)
@@ -174,7 +181,7 @@ def build_page_casio():
 
 def build_page_games():
     embed = discord.Embed(title='🎮 Nối từ', color=0xff44aa)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/6 - Vui là chính 😎')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 3/7 - Vui là chính 😎')
     embed.add_field(name=f'`{PREFIX}noitu`', value='Bắt đầu nối từ với từ ngẫu nhiên (`p!noitu 1` hoặc `p!noitu 2` chọn chế độ)', inline=False)
     embed.add_field(name=f'`{PREFIX}noitiep <1/2>`', value='Chọn chế độ: 1. Nối 1 lần (mỗi người chỉ nối 1 từ) / 2. Nối nhiều (nối liên tiếp)', inline=False)
     embed.add_field(name=f'`{PREFIX}dung`', value='Tạm dừng trò chơi tạm thời', inline=False)
@@ -186,7 +193,7 @@ def build_page_games():
 
 def build_page_ai():
     embed = discord.Embed(title='🤖 AI', color=0x7b68ee)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 4/6 - Nói chuyện với AI')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 4/7 - Nói chuyện với AI')
     embed.add_field(name=f'`{PREFIX}join`', value='Bot vào cuộc hội thoại, không cần ping hay reply', inline=False)
     embed.add_field(name=f'`{PREFIX}leave`', value='Bot rời cuộc hội thoại, cần ping hoặc reply', inline=False)
     embed.add_field(name=f'`{PREFIX}setkey <key>`', value='Set key', inline=False)
@@ -200,7 +207,7 @@ def build_page_ai():
 
 def build_page_pass():
     embed = discord.Embed(title='🔐 Password game', color=0xff9900)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 5/6')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 5/7')
     embed.add_field(name=f'`{PREFIX}pass <độ khó>`', value='Bắt đầu game (dễ / bình thường / khó / siêu khó)', inline=False)
     embed.add_field(name=f'`{PREFIX}trl <chuỗi>`', value='Gửi mật khẩu để kiểm tra điều kiện (chỉ người bắt đầu)', inline=False)
     embed.add_field(name=f'`{PREFIX}stoppass`', value='Dừng trò chơi', inline=False)
@@ -210,13 +217,25 @@ def build_page_pass():
 
 def build_page_chess():
     embed = discord.Embed(title='♟️ Cờ vua', color=0xccbb88)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 6/6')
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 6/7')
     embed.add_field(name=f'`{PREFIX}chess <username> [trắng|đen|random]`', value='Thách đấu người chơi + chọn màu (mặc định random)', inline=False)
     embed.add_field(name=f'`{PREFIX}chessok`', value='Chấp nhận lời thách đấu', inline=False)
     embed.add_field(name=f'`{PREFIX}chessno`', value='Từ chối lời thách đấu', inline=False)
     embed.add_field(name=f'`{PREFIX}chessbot <độ khó> [trắng|đen|random]`', value='Chơi với bot + chọn màu (mặc định random). Độ khó: Dễ (100-400) · Bình thường (600-900) · Khó (1200-1600) · Siêu khó (2000-2400)', inline=False)
     embed.add_field(name='🎮 Khi đã vào trận', value='Gõ **không cần `p!`**:\n`move <nước>` — di chuyển cờ (vd: e2e4, Nf3, O-O)\n`ngung` — tạm dừng\n`tiep` — tiếp tục\n`thua` — đầu hàng', inline=False)
     embed.add_field(name='📌 Lưu ý', value='Các lệnh `move / ngung / tiep / thua` **chỉ dùng được khi đã vào trò chơi** — tin nhắn khác không ảnh hưởng.', inline=False)
+    return embed
+
+
+def build_page_google():
+    embed = discord.Embed(title='🔍 Google tools', color=0x4285f4)
+    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 7/7')
+    embed.add_field(name='💡 key là gì? cx là gì?', value='**key** = chuỗi `AIza...` — \"chìa khóa\" cho phép bot gọi Google.\n**cx** = mã Search Engine ID (vd `5039a2ff8afe4450e`) — định danh bộ máy tìm kiếm bạn tạo.', inline=False)
+    embed.add_field(name=f'`{PREFIX}ggsetkey <api_key> <cx>`', value='Set key + cx (gõ 2 thứ cạnh nhau, cách nhau 1 dấu cách)', inline=False)
+    embed.add_field(name=f'`{PREFIX}search <nội dung>`', value='Search web như Google — 5 kết quả (tiêu đề + link + mô tả)', inline=False)
+    embed.add_field(name=f'`{PREFIX}imgsearch <nội dung>`', value='Search ảnh — 3 ảnh thumbnail kèm link (không chiếm chỗ chat)', inline=False)
+    embed.add_field(name='🔑 Cách lấy key & cx', value='**Lấy key (`AIza...`)**: console.cloud.google.com → API & Services → Enable "Custom Search API" → Create Credentials → API key.\n**Lấy cx**: programmablesearchengine.google.com → New search engine → chọn "Search the entire web" → Create → copy **Search engine ID**.\nXong gõ: `p!ggsetkey AIza... <cx>`', inline=False)
+    embed.add_field(name='🔋 Lưu ý', value='Key Google chỉ dùng được 100 lượt tìm kiếm/ngày. Khi hết lượt, bot sẽ báo "Hết API key" — lượt sẽ tự hồi lại lúc 14h - 15h (giờ VN) hàng ngày.', inline=False)
     return embed
 
 
@@ -229,6 +248,7 @@ class HelpSelect(discord.ui.Select):
             discord.SelectOption(label='AI', value='3', emoji='🤖'),
             discord.SelectOption(label='Password game', value='4', emoji='🔐'),
             discord.SelectOption(label='Cờ vua', value='5', emoji='♟️'),
+            discord.SelectOption(label='Google tools', value='6', emoji='🔍'),
         ]
         super().__init__(placeholder='Chọn trang hướng dẫn', options=options, row=0)
         self.pages = pages
@@ -281,7 +301,7 @@ class VdDocsView(discord.ui.View):
 # ---------------- LỆNH CHUNG ----------------
 
 async def cmd_help(message, args):
-    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai(), build_page_pass(), build_page_chess()]
+    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai(), build_page_pass(), build_page_chess(), build_page_google()]
     view = HelpView(pages)
     msg = await message.reply(embed=pages[0], view=view)
     view.message = msg
@@ -305,22 +325,36 @@ async def cmd_setchannel(message, args):
     if not is_admin(message):
         await message.reply('❌ Chỉ có quyền admin mới dùng được lệnh này!')
         return
-    cid = extract_id(args)
-    if not cid:
-        await message.reply(miss_msg('setchannel', f'{PREFIX}setchannel <id>'))
-        return
-    chan = message.guild.get_channel(cid)
-    if not chan:
-        await message.reply(wrong_msg('setchannel', 'không tìm thấy kênh có id đó', f'{PREFIX}setchannel <id>'))
+    ids = [int(x) for x in re.findall(r'\d+', args)]
+    if not ids:
+        await message.reply(miss_msg('setchannel', f'{PREFIX}setchannel <kênh1> <kênh2> ...'))
         return
     lst = locked_channels(message.guild.id)
-    if cid in lst:
-        reply = await message.reply(f'Kênh <#{cid}> đã có trong danh sách rồi!')
-        await reply.delete(delay=5)
-        return
-    lst.append(cid)
+    added = []
+    already = []
+    not_found = []
+    for cid in ids:
+        if cid in lst:
+            already.append(cid)
+            continue
+        chan = message.guild.get_channel(cid)
+        if not chan:
+            not_found.append(cid)
+            continue
+        lst.append(cid)
+        added.append(cid)
     save_config()
-    reply = await message.reply(f'Đã thêm kênh <#{cid}> vào danh sách (tổng {len(lst)} kênh).')
+    parts = []
+    if added:
+        parts.append('Đã thêm: ' + ', '.join(f'<#{c}>' for c in added))
+    if already:
+        parts.append('Đã có sẵn: ' + ', '.join(f'<#{c}>' for c in already))
+    if not_found:
+        parts.append('Không tìm thấy: ' + ', '.join(f'`{c}`' for c in not_found))
+    if not parts:
+        await message.reply('❌ Không có kênh nào hợp lệ để thêm.')
+        return
+    reply = await message.reply(' | '.join(parts) + f' (tổng {len(lst)} kênh)')
     await reply.delete(delay=5)
 
 
@@ -332,27 +366,24 @@ async def cmd_delchannel(message, args):
     if not lst:
         await message.reply('Danh sách kênh trống — bot đang hoạt động ở mọi kênh.')
         return
-    if not args:
-        await message.reply(f'Cách dùng: `{PREFIX}delchannel <số hoặc id>`\n{fmt_channel_list(message.guild, lst)}')
+    if not args.strip():
+        await message.reply(f'Cách dùng: `{PREFIX}delchannel <số|id> [<số|id> ...]`\n{fmt_channel_list(message.guild, lst)}')
         return
-    a = args.strip()
-    if not a.isdigit():
-        await message.reply(wrong_msg('delchannel', f'`{a}` không phải số thứ tự trong danh sách hoặc id kênh', f'{PREFIX}delchannel <số hoặc id>'))
-        return
-    n = int(a)
-    removed = None
-    if 1 <= n <= len(lst):
-        removed = lst.pop(n - 1)
-    else:
-        chk = message.guild.get_channel(n)
-        if chk and n in lst:
+    removed = []
+    for tok in args.split():
+        if not tok.isdigit():
+            continue
+        n = int(tok)
+        if 1 <= n <= len(lst):
+            removed.append(lst.pop(n - 1))
+        elif n in lst:
             lst.remove(n)
-            removed = n
-    if removed is None:
-        await message.reply('Không tìm thấy kênh đó trong danh sách.')
-        return
+            removed.append(n)
     save_config()
-    await message.reply(f'Đã xoá kênh <#{removed}> khỏi danh sách (còn {len(lst)} kênh).')
+    if removed:
+        await message.reply('Đã xoá: ' + ', '.join(f'<#{c}>' for c in removed) + f' (còn {len(lst)} kênh).')
+    else:
+        await message.reply('Không tìm thấy kênh nào để xoá trong danh sách.')
 
 
 async def cmd_listchannel(message, args):
@@ -1089,6 +1120,78 @@ async def cmd_chessbot(message, args):
     await chessbot.cmd_chessbot(message, args, PREFIX)
 
 
+async def cmd_ggsetkey(message, args):
+    parts = (args or '').split()
+    if len(parts) != 2:
+        await message.reply(miss_msg('ggsetkey', 'p!ggsetkey <api_key> <cx>'))
+        return
+    gs = guild_settings(message.guild.id)
+    gs['gg_key'] = parts[0]
+    gs['gg_cx'] = parts[1]
+    save_config()
+    await message.reply('✅ Đã lưu Google API key + Search Engine ID cho server này.')
+
+
+async def cmd_gsearch(message, args):
+    key, cx = _gg_creds(message.guild.id)
+    if not (key and cx):
+        await message.reply('⚠️ Chưa set Google key. Dùng `p!ggsetkey <api_key> <cx>` (xem help để biết cách lấy).')
+        return
+    if not args.strip():
+        await message.reply(miss_msg('search', 'p!search <nội dung>'))
+        return
+    try:
+        results = await gsearch.search_web(key, cx, args.strip())
+    except gsearch.GgQuotaError:
+        await message.reply(gsearch.quota_msg())
+        return
+    except gsearch.GgError as e:
+        await message.reply(f'❌ Lỗi Google: `{e}`')
+        return
+    if not results:
+        await message.reply('Không tìm thấy kết quả cho: `' + args.strip() + '`')
+        return
+    lines = []
+    for i, r in enumerate(results, start=1):
+        lines.append(f'**{i}. {r["title"]}**\n{r["link"]}\n{r["snippet"]}')
+    for chunk in vd_docs.chunk_text('\n\n'.join(lines)):
+        await message.channel.send(chunk)
+
+
+async def cmd_imgsearch(message, args):
+    key, cx = _gg_creds(message.guild.id)
+    if not (key and cx):
+        await message.reply('⚠️ Chưa set Google key. Dùng `p!ggsetkey <api_key> <cx>`.')
+        return
+    if not args.strip():
+        await message.reply(miss_msg('imgsearch', 'p!imgsearch <nội dung>'))
+        return
+    try:
+        results = await gsearch.search_images(key, cx, args.strip())
+    except gsearch.GgQuotaError:
+        await message.reply(gsearch.quota_msg())
+        return
+    except gsearch.GgError as e:
+        await message.reply(f'❌ Lỗi Google: `{e}`')
+        return
+    if not results:
+        await message.reply('Không tìm thấy ảnh cho: `' + args.strip() + '`')
+        return
+    files = []
+    links = []
+    for r in results:
+        links.append(f"**{r['title']}**\n{r['link']}")
+        if r.get('thumb'):
+            try:
+                async with aiohttp.ClientSession() as s:
+                    async with s.get(r['thumb'], timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                        if resp.status == 200:
+                            files.append(discord.File(io.BytesIO(await resp.read()), filename='img.jpg'))
+            except Exception:
+                pass
+    await message.reply('\n\n'.join(links) if links else 'Không tìm thấy ảnh.', files=files)
+
+
 COMMANDS = {
     'help': cmd_help,
     'ping': cmd_ping,
@@ -1129,6 +1232,9 @@ COMMANDS = {
     'chessok': cmd_chessok,
     'chessno': cmd_chessno,
     'chessbot': cmd_chessbot,
+    'ggsetkey': cmd_ggsetkey,
+    'search': cmd_gsearch,
+    'imgsearch': cmd_imgsearch,
 }
 
 
