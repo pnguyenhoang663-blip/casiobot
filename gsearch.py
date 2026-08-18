@@ -36,11 +36,21 @@ def quota_msg():
 async def _get_json(url):
     async with aiohttp.ClientSession() as s:
         async with s.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
-            if r.status in (403, 429):
-                raise GgQuotaError()
-            if r.status != 200:
-                raise GgError(f'Google trả lỗi HTTP {r.status}')
-            return await r.json()
+            status = r.status
+            try:
+                data = await r.json()
+            except Exception:
+                data = {}
+            msg = ((data.get('error') or {}).get('message')) or ''
+            low = msg.lower()
+            is_quota = status == 429 or any(k in low for k in ('quota', 'dailylimit', 'ratelimit'))
+            if is_quota:
+                raise GgQuotaError(msg)
+            if status != 200:
+                if msg:
+                    raise GgError(f'HTTP {status}: {msg}')
+                raise GgError(f'Google trả lỗi HTTP {status}')
+            return data
 
 
 async def search_web(key, cx, query):
