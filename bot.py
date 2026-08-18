@@ -180,7 +180,7 @@ def build_page_games():
     embed.add_field(name=f'`{PREFIX}dung`', value='Tạm dừng trò chơi tạm thời', inline=False)
     embed.add_field(name=f'`{PREFIX}tiep`', value='Tiếp tục trò chơi đang tạm dừng', inline=False)
     embed.add_field(name=f'`{PREFIX}stop`', value='Kết thúc cuộc chơi', inline=False)
-    embed.add_field(name='📜 Luật chơi', value='- Nối tiếp bằng **từ cuối** của cụm trước (vd: con mèo → mèo mướp)\n- Trả lời đúng → ✅\n- Trả lời sai → ❌\n- Người đã nối rồi mà nối tiếp (chế độ 1 lần) → ⏳\n- Ai nối 1 từ không ai có từ tiếp theo nối được nữa → người đó **THẮNG** 🏆', inline=False)
+    embed.add_field(name='📜 Luật chơi', value='- Nối bằng **từ ghép 2 tiếng** (2 từ, vd: con mèo → mèo mướp), **gõ đúng dấu**\n- Không đủ 2 từ / 3 từ trở lên → báo **Sai luật**\n- Trả lời đúng → ✅\n- Trả lời sai → ❌\n- Người đã nối rồi mà nối tiếp (chế độ 1 lần) → ⏳\n- Ai nối 1 từ không ai có từ tiếp theo nối được nữa → người đó **THẮNG** 🏆', inline=False)
     return embed
 
 
@@ -839,24 +839,33 @@ async def handle_noitu_move(message):
         return
     content = message.content.strip()
     tokens = content.split()
-    if not tokens or len(tokens) > 2:
+    if not tokens:
+        return
+    if not all(t.isalpha() for t in tokens):
+        return
+    if len(tokens) != 2:
+        try:
+            await message.add_reaction('❌')
+        except Exception:
+            pass
+        await message.reply(f'⚠️ **Sai luật**: phải nối từ ghép **2 tiếng** (2 từ, vd: `mèo mướp`)!')
         return
     base = [t for t in (noitu.canon(x) for x in tokens) if len(t) >= 2]
-    if not base:
+    if len(base) != 2:
+        try:
+            await message.add_reaction('❌')
+        except Exception:
+            pass
+        await message.reply('❌ Không hợp lệ — cần từ ghép đủ 2 tiếng có nghĩa (vd: `mèo mướp`).')
         return
-    if len(base) == 1:
-        phrase = base[0]
-        ok_dict = phrase in noitu.WORDS
-    else:
-        phrase = ' '.join(base)
-        ok_dict = phrase in noitu.PHRASES
+    phrase = ' '.join(base)
     if g['mode'] == 1 and g['last_player'] == message.author.id:
         try:
             await message.add_reaction('⏳')
         except Exception:
             pass
         return
-    if phrase in g['used'] or not ok_dict or base[0] != g['need_word']:
+    if phrase in g['used'] or phrase not in noitu.PHRASES or base[0] != g['need_word']:
         try:
             await message.add_reaction('❌')
         except Exception:
