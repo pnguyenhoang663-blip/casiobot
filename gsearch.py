@@ -22,6 +22,16 @@ def _ck(kind, q):
     return (kind, q.strip().lower())
 
 
+def relax_queries(q):
+    out = [q.strip()]
+    words = q.split()
+    general = [w for w in words if not re.search(r'\d', w)]
+    for cand in (' '.join(general), general[0] if general else None):
+        if cand and cand not in out:
+            out.append(cand)
+    return out
+
+
 async def _fetch(url):
     async with aiohttp.ClientSession() as s:
         async with s.get(url, headers={'User-Agent': UA}, timeout=aiohttp.ClientTimeout(total=15)) as r:

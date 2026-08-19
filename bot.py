@@ -1141,14 +1141,22 @@ async def cmd_imgsearch(message, args):
         await message.reply(miss_msg('imgsearch', 'p!imgsearch <nội dung>'))
         return
     query = args.strip()
-    try:
-        results = await gsearch.search_images_free(query)
-    except Exception as e:
-        await message.reply(f'❌ Lỗi tìm ảnh: `{e}`')
-        return
+    results = []
+    used_query = query
+    for qcand in gsearch.relax_queries(query):
+        try:
+            results = await gsearch.search_images_free(qcand)
+        except Exception:
+            results = []
+        if results:
+            used_query = qcand
+            break
     if not results:
         await message.reply('Không tìm thấy ảnh cho: `' + query + '`')
         return
+    note = ''
+    if used_query != query:
+        note = 'Không thấy kết quả đúng, bot thử với: `' + used_query + '`\n\n'
     files = []
     links = []
     for r in results:
@@ -1168,7 +1176,7 @@ async def cmd_imgsearch(message, args):
                     files.append(discord.File(io.BytesIO(buf.getvalue()), filename='img.jpg'))
             except Exception:
                 pass
-    chunks = vd_docs.chunk_text('\n\n'.join(links))
+    chunks = vd_docs.chunk_text(note + '\n\n'.join(links))
     await message.reply(chunks[0], files=files)
     for c in chunks[1:]:
         await message.channel.send(c)
