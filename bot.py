@@ -1169,9 +1169,6 @@ async def cmd_imgsearch(message, args):
             except Exception:
                 pass
     chunks = vd_docs.chunk_text('\n\n'.join(links))
-    if used_free:
-        text = '🔍 (chế độ free — Openverse)\n\n' + text
-    chunks = vd_docs.chunk_text(text)
     await message.reply(chunks[0], files=files)
     for c in chunks[1:]:
         await message.channel.send(c)
