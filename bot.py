@@ -50,7 +50,7 @@ AI_DOC = ''
 AI_HISTORY_LEN = 8
 PERSONAS = {
     1: 'TÍNH CÁCH NGOAN: lịch sự, đúng mực, thân thiện, không chửi thề, không xúc phạm, trả lời mọi câu hỏi (biết hết mọi thứ).',
-    2: 'TÍNH CÁCH LÁO: hơi láo, hay chọc ghẹo, tếu táo, nhưng không xúc phạm nặng và không chửi tục (biết hết mọi thứ).',
+    2: 'TÍNH CÁCH THẲNG THẮN: nói chuyện thẳng thắn, không vòng vo, trả lời luôn cả những câu hỏi nhạy cảm, biết tất cả mọi thứ, hơi láo nhưng không xúc phạm, dùng tông giọng genz (biết hết mọi thứ).',
     3: 'TÍNH CÁCH ĐCM: rất láo, hay chửi tục, có thể xúc phạm nhẹ — người gõ đã tự chấp nhận (biết hết mọi thứ).',
     4: 'TÍNH CÁCH >.<: chỉ nói về chuyện tình của Phong và NGƯỜI YÊU CỦA PHONG (ny là người yêu của Phong — KHÔNG phải bạn/bot là ny). Bạn chỉ là người buôn chuyện, ủng hộ cho vui; có thể nói những câu đen tối, lãng mạn; không bàn chuyện khác.',
 }
@@ -203,7 +203,7 @@ def build_page_ai():
     embed.add_field(name=f'`{PREFIX}delkey`', value='Xoá key hiện tại', inline=False)
     embed.add_field(name=f'`{PREFIX}showkey`', value='Xem key hiện tại', inline=False)
     embed.add_field(name=f'`{PREFIX}models`', value='Xem danh sách model Gemini khả dụng với key', inline=False)
-    embed.add_field(name=f'`{PREFIX}doitinhcach <1/2/3/4>`', value='Đổi tính cách AI (chung cả server): 1 Ngoan · 2 Láo · 3 Đcm · 4 >.<  (chuyện tình Phong & ny của Phong)', inline=False)
+    embed.add_field(name=f'`{PREFIX}doitinhcach <1/2/3/4>`', value='Đổi tính cách AI (chung cả server): 1 Ngoan · 2 Thẳng thắn · 3 Đcm · 4 >.<  (chuyện tình Phong & ny của Phong)', inline=False)
     embed.add_field(name='🧠 Model', value=f'`{AI_MODEL}` — Google Gemini (free). Lấy key tại aistudio.google.com/apikey, set bằng `{PREFIX}setkey`', inline=False)
     return embed
 
@@ -1041,11 +1041,11 @@ async def cmd_ai_models(message, args):
 
 async def cmd_doitinhcach(message, args):
     a = args.strip()
-    names = {1: 'Ngoan', 2: 'Láo', 3: 'Đcm', 4: '>.<'}
+    names = {1: 'Ngoan', 2: 'Thẳng thắn', 3: 'Đcm', 4: '>.<'}
     if not a:
         await message.reply('Các tính cách AI (áp dụng chung cho cả server):\n'
                             '1. **Ngoan** — lịch sự, đúng mực, không chửi (mặc định)\n'
-                            '2. **Láo** — hơi láo, chọc ghẹo, không xúc phạm nặng\n'
+                            '2. **Thẳng thắn** — nói thẳng, không vòng vo, trả lời cả câu nhạy cảm, hơi láo nhưng không xúc phạm, genz\n'
                             '3. **Đcm** — rất láo, chửi tục, có thể xúc phạm (người dùng tự chịu trách nhiệm)\n'
                             '4. **>.<** — chỉ nói chuyện tình của Phong & **ny của Phong** (bot không phải ny), có thể đen tối\n'
                             f'Dùng `{PREFIX}doitinhcach <1/2/3/4>` để chọn.')
