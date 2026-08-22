@@ -14,7 +14,7 @@ from PIL import Image
 
 import compiler_lib as cl
 import chessbot
-import gsearch
+
 import matkhau
 import noitu
 import vd_docs
@@ -78,7 +78,7 @@ def save_config():
 def guild_settings(guild_id):
     gid = str(guild_id)
     if gid not in CONFIG['guilds']:
-        CONFIG['guilds'][gid] = {'channel': [], 'search580': None, 'search880': None, 'ai_key': None, 'ai_persona': 1, 'gg_key': None, 'gg_cx': None}
+        CONFIG['guilds'][gid] = {'channel': [], 'search580': None, 'search880': None, 'ai_key': None, 'ai_persona': 1}
     gs = CONFIG['guilds'][gid]
     if not isinstance(gs.get('channel'), list):
         gs['channel'] = [gs['channel']] if gs.get('channel') else []
@@ -87,12 +87,6 @@ def guild_settings(guild_id):
 
 def locked_channels(guild_id):
     return guild_settings(guild_id).get('channel', [])
-
-
-def _gg_creds(guild_id):
-    gs = guild_settings(guild_id)
-    return (gs.get('gg_key') or os.getenv('GOOGLE_API_KEY', ''),
-            gs.get('gg_cx') or os.getenv('GOOGLE_CSE_ID', ''))
 
 
 
@@ -230,17 +224,6 @@ def build_page_chess():
     return embed
 
 
-def build_page_google():
-    embed = discord.Embed(title='🔍 Search tools', color=0x4285f4)
-    embed.set_footer(text=f'Prefix: {PREFIX} | Trang 7/7')
-    embed.add_field(name=f'`{PREFIX}search <nội dung>`', value='Search web — 5 kết quả (tiêu đề + link + mô tả).', inline=False)
-    embed.add_field(name=f'`{PREFIX}imgsearch <nội dung>`', value='Search ảnh — 3 ảnh thumbnail kèm link (không chiếm chỗ chat).', inline=False)
-    embed.add_field(name=f'`{PREFIX}ggsetkey <api_key> <cx>`', value='Set Google key + cx để search bằng Google thật (tìm gì ra nấy). Chưa set thì bot tự dùng chế độ free.', inline=False)
-    embed.add_field(name='🔑 Cách lấy key & cx', value='**Lấy key (`AIza...`)**: console.cloud.google.com → chọn đúng project → API & Services → **Library** → tìm "Custom Search API" → **Enable** → Credentials → Create Credentials → API key.\n**Lấy cx**: programmablesearchengine.google.com → New search engine → chọn "Search the entire web" → Create → copy **Search engine ID**.\nXong gõ: `p!ggsetkey AIza... <cx>`', inline=False)
-    embed.add_field(name='🔋 Lưu ý', value='Key Google dùng được 100 lượt/ngày. Khi hết lượt hoặc key lỗi, bot tự chuyển sang chế độ free.', inline=False)
-    return embed
-
-
 class HelpSelect(discord.ui.Select):
     def __init__(self, pages):
         options = [
@@ -250,7 +233,7 @@ class HelpSelect(discord.ui.Select):
             discord.SelectOption(label='AI', value='3', emoji='🤖'),
             discord.SelectOption(label='Password game', value='4', emoji='🔐'),
             discord.SelectOption(label='Cờ vua', value='5', emoji='♟️'),
-            discord.SelectOption(label='Search tools', value='6', emoji='🔍'),
+            
         ]
         super().__init__(placeholder='Chọn trang hướng dẫn', options=options, row=0)
         self.pages = pages
@@ -303,7 +286,7 @@ class VdDocsView(discord.ui.View):
 # ---------------- LỆNH CHUNG ----------------
 
 async def cmd_help(message, args):
-    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai(), build_page_pass(), build_page_chess(), build_page_google()]
+    pages = [build_page_chung(), build_page_casio(), build_page_games(), build_page_ai(), build_page_pass(), build_page_chess()]
     view = HelpView(pages)
     msg = await message.reply(embed=pages[0], view=view)
     view.message = msg
@@ -1122,112 +1105,6 @@ async def cmd_chessbot(message, args):
     await chessbot.cmd_chessbot(message, args, PREFIX)
 
 
-async def cmd_ggsetkey(message, args):
-    parts = (args or '').split()
-    if len(parts) != 2:
-        await message.reply(miss_msg('ggsetkey', 'p!ggsetkey <api_key> <cx>'))
-        return
-    gs = guild_settings(message.guild.id)
-    gs['gg_key'] = parts[0]
-    gs['gg_cx'] = parts[1]
-    save_config()
-    await message.reply('✅ Đã lưu Google API key + Search Engine ID cho server này.')
-
-
-async def cmd_gsearch(message, args):
-    if not args.strip():
-        await message.reply(miss_msg('search', 'p!search <nội dung>'))
-        return
-    query = args.strip()
-    key, cx = _gg_creds(message.guild.id)
-    results = None
-    used_google = False
-    if key and cx:
-        try:
-            results = await gsearch.search_web(key, cx, query)
-            used_google = True
-        except gsearch.GgQuotaError:
-            await message.reply(gsearch.quota_msg())
-            return
-        except gsearch.GgError:
-            results = None
-    if results is None:
-        try:
-            results = await gsearch.search_web_free(query)
-        except Exception as e:
-            await message.reply(f'❌ Lỗi tìm kiếm: `{e}`')
-            return
-    if not results:
-        await message.reply('Không tìm thấy kết quả cho: `' + query + '`')
-        return
-    lines = []
-    for i, r in enumerate(results, start=1):
-        lines.append(f'**{i}. {r["title"]}**\n{r["link"]}\n{r["snippet"]}')
-    text = '\n\n'.join(lines)
-    if not used_google:
-        text = '🔍 (DuckDuckGo)\n\n' + text
-    chunks = vd_docs.chunk_text(text)
-    await message.reply(chunks[0])
-    for c in chunks[1:]:
-        await message.channel.send(c)
-
-
-async def cmd_imgsearch(message, args):
-    if not args.strip():
-        await message.reply(miss_msg('imgsearch', 'p!imgsearch <nội dung>'))
-        return
-    query = args.strip()
-    key, cx = _gg_creds(message.guild.id)
-    results = None
-    used_google = False
-    if key and cx:
-        try:
-            results = await gsearch.search_images(key, cx, query)
-            used_google = True
-        except gsearch.GgQuotaError:
-            await message.reply(gsearch.quota_msg())
-            return
-        except gsearch.GgError:
-            results = None
-    note = ''
-    if results is None:
-        for qcand in gsearch.relax_queries(query):
-            try:
-                results = await gsearch.search_images_free(qcand)
-            except Exception:
-                results = []
-            if results:
-                if qcand != query:
-                    note = 'Không thấy kết quả đúng, bot thử với: `' + qcand + '`\n\n'
-                break
-    if not results:
-        await message.reply('Không tìm thấy ảnh cho: `' + query + '`')
-        return
-    files = []
-    links = []
-    for r in results:
-        links.append(f"**{r['title']}**\n{r['link']}")
-        thumb = r.get('thumb')
-        if not thumb:
-            continue
-        try:
-            raw = await gsearch._fetch(thumb)
-            if used_google:
-                files.append(discord.File(io.BytesIO(raw), filename='img.jpg'))
-            else:
-                with Image.open(io.BytesIO(raw)) as im:
-                    im.thumbnail((400, 400))
-                    buf = io.BytesIO()
-                    im.convert('RGB').save(buf, format='JPEG', quality=85)
-                    files.append(discord.File(io.BytesIO(buf.getvalue()), filename='img.jpg'))
-        except Exception:
-            pass
-    chunks = vd_docs.chunk_text(note + '\n\n'.join(links))
-    await message.reply(chunks[0], files=files)
-    for c in chunks[1:]:
-        await message.channel.send(c)
-
-
 COMMANDS = {
     'help': cmd_help,
     'ping': cmd_ping,
@@ -1268,9 +1145,6 @@ COMMANDS = {
     'chessok': cmd_chessok,
     'chessno': cmd_chessno,
     'chessbot': cmd_chessbot,
-    'ggsetkey': cmd_ggsetkey,
-    'search': cmd_gsearch,
-    'imgsearch': cmd_imgsearch,
 }
 
 
